@@ -57,18 +57,42 @@
 # SET UP                                                                       #----
 #==============================================================================#----
 # Sociodemographic + Pest + Diet
-infile1 <- "db/data_sepages_joana_v2_261013.rds" 
+infile1 <- "db/pest_cov_data/data_sepages_joana_v2_261013.rds" 
 
 # Betas methylation
-infile2 <- "db/transfer_13850901_files_eaaf7a9e/SEPAGES_ids+basenames.rds"
-infile3 <- "db/transfer_13850901_files_eaaf7a9e/SEPAGES_20230615_Preprocessed.RData"
-infile4 <- "db/transfer_13850901_files_eaaf7a9e/SEPAGES_20230615_Recommended_Samples_to_Remove.csv"
+infile2 <- "db/plaDNAm_data/SEPAGES_ids+basenames.rds"
+infile3 <- "db/plaDNAm_data/SEPAGES_20230615_Preprocessed.RData"
+infile4 <- "db/plaDNAm_data/SEPAGES_20230615_Recommended_Samples_to_Remove.csv"
 
 outfile <- "db/db_pest_pladnam_incomplete_cases.rds"
 
-
 # Load data (variables + pesticides)
 df <- readRDS(infile1) # 484 x 1490
+
+# Get all available vars listed and explained                         
+variable_labels <- lapply(df, function(x) {
+  lbl <- attr(x, "label")
+  if (is.null(lbl)) "No label" else paste(lbl, collapse = " ")
+})
+labels_df <- data.frame(Variable = names(variable_labels),
+                        Label    = unlist(variable_labels),
+                        stringsAsFactors = FALSE)
+write.table(labels_df, file = "db/variable_labels_output.txt",
+            sep = "\t", row.names = FALSE, quote = FALSE)
+
+# Remove value-label classes (haven_labelled) -> plain numeric/character.
+# Keeps the variable label (attr "label"), so no need to load haven.
+for (v in names(df)) {
+  if (any(grepl("labelled", class(df[[v]])))) {
+    lbl <- attr(df[[v]], "label")
+    df[[v]] <- as.vector(unclass(df[[v]]))
+    attr(df[[v]], "label") <- lbl
+  }
+}
+
+# Check: no labelled variables left
+sum(sapply(df, function(x) any(grepl("labelled", class(x)))))   # 0
+
 
 # Load data relates to methylation 
 load(infile3)
@@ -210,6 +234,7 @@ sum(!is.na(df_sel$Basename)) # 389
 #==============================================================================#----
 # CHECK & RECODE IF NEEDED                                                     #----
 #==============================================================================#----
+
 # Check Maternal age - Continuous - years - OK 
 summary(df_sel$mo_age)                       
 
@@ -233,7 +258,7 @@ summary(df_sel$mo_bmi_bepr)
 table(df_sel$mo_par, useNA = "ifany")
 df_sel$mo_parity <- ifelse(df_sel$mo_par == 0, "Nulliparous",
                            ifelse(df_sel$mo_par > 0, "Multiparous", NA))
-#table(df_sel$mo_par, df_sel$mo_parity, useNA = "ifany")
+table(df_sel$mo_parity, df_sel$mo_parity, useNA = "ifany")
 
 # Check Fruit and vegetable intake - Continuous - g/1000kcal/day - OK 
 summary(df_sel$fv_g1000kcal)
@@ -268,11 +293,6 @@ summary(df_sel[, c("mo_pest_tcpy_raw_t2","mo_pest_tcpy_i_t2")])
 # Max.   :52.6753     Max.   :52.6753  
 # NA's   :5           NA's   :5   
 
-attr(df_sel$mo_pest_tcpy_raw_t2, "label")
-attr(df_sel$mo_pest_tcpy_i_t2, "label")
-# "TCPy raw vals NIPH(no imp, no std)"
-# "TCPy imp:ND"
-
 # Transform pest to log2
 df_sel$mo_pest_3pba_i_log2_t2 <- log2(df_sel$mo_pest_3pba_i_t2)
 df_sel$mo_pest_3pba_i_log2_t3 <- log2(df_sel$mo_pest_3pba_i_t3)
@@ -281,8 +301,8 @@ df_sel$mo_pest_tcpy_i_log2_t3 <- log2(df_sel$mo_pest_tcpy_i_t3)
 
 # Transform 2,4-D to detected / not detected
 # 1 = <LOD -> 0 (not detected); 2 = LOD-LOQ, 3 = >LOQ -> 1 (detected)
-df_sel$d24_det_t2 <- ifelse(df_sel$mo_pest_24d_cat_t2 >= 2, 1, 0)
-df_sel$d24_det_t3 <- ifelse(df_sel$mo_pest_24d_cat_t3 >= 2, 1, 0)
+df_sel$mo_pest_24d_bi_t2 <- ifelse(df_sel$mo_pest_24d_cat_t2 >= 2, 1, 0)
+df_sel$mo_pest_24d_bi_t3 <- ifelse(df_sel$mo_pest_24d_cat_t3 >= 2, 1, 0)
 
 # Check: molar sums in umol/L - OK 
 summary(df_sel$mo_pest_dep_ms_i_t2)
@@ -298,19 +318,6 @@ df_sel$mo_pest_dap_ms_i_log2_t2 <- log2(df_sel$mo_pest_dap_ms_i_t2)
 df_sel$mo_pest_dap_ms_i_log2_t3 <- log2(df_sel$mo_pest_dap_ms_i_t3)
 
 saveRDS(df_sel, outfile)
-
-#==============================================================================#----
-# Extra: Get all available vars listed and explained                           #----
-#==============================================================================#----
-variable_labels <- lapply(df, function(x) {
-  lbl <- attr(x, "label")
-  if (is.null(lbl)) "No label" else paste(lbl, collapse = " ")
-})
-labels_df <- data.frame(Variable = names(variable_labels),
-                        Label    = unlist(variable_labels),
-                        stringsAsFactors = FALSE)
-write.table(labels_df, file = "db/variable_labels_output.txt",
-            sep = "\t", row.names = FALSE, quote = FALSE)
 
 #==============================================================================#----
 # END OF SCRIPT                                                                #----
