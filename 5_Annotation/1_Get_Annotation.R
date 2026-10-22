@@ -54,8 +54,8 @@ unique_split <- function(x) {
 annotation <- as.data.frame(getAnnotation(IlluminaHumanMethylationEPICanno.ilm10b2.hg19))
 annotation <- annotation[, c("chr", "pos", "Relation_to_Island",
                              "UCSC_RefGene_Name", "UCSC_RefGene_Group")]
-annotation$CpG        <- rownames(annotation)
-annotation$gene_name  <- unique_split(annotation$UCSC_RefGene_Name)
+annotation$CpG <- rownames(annotation)
+annotation$gene_name <- unique_split(annotation$UCSC_RefGene_Name)
 annotation$gene_group <- unique_split(annotation$UCSC_RefGene_Group)
 annotation <- annotation[, c("CpG", "chr", "pos", "Relation_to_Island", "gene_name", "gene_group")]
 dim(annotation)   # ~866k CpGs
