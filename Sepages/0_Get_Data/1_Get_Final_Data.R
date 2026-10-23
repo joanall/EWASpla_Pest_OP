@@ -231,6 +231,37 @@ sapply(df[, c("mo_age", "mo_edu", "mo_smoke", "mo_bmi", "mo_parity",
               "pest_24d_bi_t2", "pest_24d_bi_t3", log2_vars)], class)
 
 
+#==============================================================================#----
+# AVERAGES                                                                     #----
+#==============================================================================#----
+# Pregnancy-average exposure (main subset: all women have both time points)
+# - Continuous: mean of the two log2 values (= log2 of the geometric mean)
+# - 2,4-D: number of time points detected (0, 1, 2)
+
+# 1. TCPy, 3-PBA - log2
+df$pest_tcpy_ilog2_avg <- rowMeans(df[, c("pest_tcpy_ilog2_t2", "pest_tcpy_ilog2_t3")], na.rm = TRUE)
+df$pest_3pba_ilog2_avg <- rowMeans(df[, c("pest_3pba_ilog2_t2", "pest_3pba_ilog2_t3")], na.rm = TRUE)
+
+# 2. OP molar sums - log2
+df$pest_dep_ms_ilog2_avg <- rowMeans(df[, c("pest_dep_ms_ilog2_t2", "pest_dep_ms_ilog2_t3")], na.rm = TRUE)
+df$pest_dmp_ms_ilog2_avg <- rowMeans(df[, c("pest_dmp_ms_ilog2_t2", "pest_dmp_ms_ilog2_t3")], na.rm = TRUE)
+df$pest_dap_ms_ilog2_avg <- rowMeans(df[, c("pest_dap_ms_ilog2_t2", "pest_dap_ms_ilog2_t3")], na.rm = TRUE)
+
+# 2,4-D average: detected at >= 1 available time point (0/1; NA if both missing)
+df$pest_24d_any_avg <- ifelse(is.na(df$pest_24d_bi_t2) & is.na(df$pest_24d_bi_t3), NA,
+                              as.numeric(rowSums(df[, c("pest_24d_bi_t2", "pest_24d_bi_t3")],
+                                                 na.rm = TRUE) >= 1))
+
+# 4. Specific gravity - mean of both pools
+df$pool_sg_avg <- rowMeans(df[, c("pool_sg_t2", "pool_sg_t3")], na.rm = TRUE)
+
+# rowMeans of two NA gives NaN -> NA
+avg_vars <- c("pest_tcpy_ilog2_avg", "pest_3pba_ilog2_avg", "pest_dep_ms_ilog2_avg",
+              "pest_dmp_ms_ilog2_avg", "pest_dap_ms_ilog2_avg", "pool_sg_avg")
+for (v in avg_vars) df[[v]][is.nan(df[[v]])] <- NA
+
+# Check: averages lie between the two time points
+summary(df[, c(avg_vars, "pest_24d_any_avg")])
 
 #==============================================================================#----
 # MAIN DATA                                                                    #----
