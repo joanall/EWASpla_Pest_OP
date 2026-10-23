@@ -20,7 +20,7 @@
 #
 # Exposures: 2,4-D (0 = not detected, 1 = detected), 3-PBA, TCPy (imputed,
 #            log2), ΣDMP, ΣDEP, ΣDAP (molar sums, log2). All numeric.
-#
+#            avg = mean of the log2 values at t2 and t3. All numeric.
 # Main covariates: maternal age, education, smoking, GA, child ethnicity,
 #   child sex, DNA contamination, 5 cell types (Syncytiotrophoblast = ref).
 #   BiSC only: + delivery hospital.
@@ -64,7 +64,7 @@ run_date     <- if (length(args) >= 5) args[5] else format(Sys.Date(), "%Y%m%d")
 exposure_arg <- if (length(args) >= 6) args[6] else "all"   # e.g. "24d" or "24d,3pba"
 
 stopifnot(cohort %in% c("sepages", "bisc"))
-stopifnot(time_point %in% c("t2", "t3"))
+stopifnot(time_point %in% c("t2", "t3", "avg"))
 stopifnot(sample_set %in% c("2tp", "tp"))
 if (cohort == "sepages" && sample_set == "tp") stop("SEPAGES has only the 2tp sample")
 
@@ -125,7 +125,8 @@ cat("Cohort:", cohort, "| Sample:", sample_set, "| Time point:", time_point,
 #==============================================================================#----
 
 # Exposures, selected for the chosen time point
-exposures <- paste0(c("pest_24d_bi", "pest_3pba_ilog2", "pest_tcpy_ilog2",
+d24_var   <- if (time_point == "avg") "pest_24d_any" else "pest_24d_bi"
+exposures <- paste0(c(d24_var, "pest_3pba_ilog2", "pest_tcpy_ilog2",
                       "pest_dmp_ms_ilog2", "pest_dep_ms_ilog2", "pest_dap_ms_ilog2"),
                     "_", time_point)
 analysis_name <- paste0(c("24d", "3pba", "tcpy", "dmp", "dep", "dap"), "_", time_point)
@@ -167,9 +168,6 @@ if (grepl("\\.rds$", betas_path, ignore.case = TRUE)) {
   meth_all  <- as.matrix(get(betas_obj[1]))
   rm(list = betas_obj)
 }
-
-cat("Number of CpGs:", nrow(meth_all), "| Samples:", ncol(meth_all), "\n")
-range(meth_all, na.rm = TRUE)
 
 cat("Number of CpGs:", nrow(meth_all), "| Samples:", ncol(meth_all), "\n")
 range(meth_all, na.rm = TRUE)
