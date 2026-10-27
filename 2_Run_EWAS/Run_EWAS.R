@@ -32,7 +32,9 @@
 #   4) sample:     2tp (women with both time points; default)
 #                  tp  (all women with this time point; BiSC only)
 #   5) run date:   YYYYMMDD (optional; default today)
-#
+#   6) argument: 24d", "3pba", "tcpy", "dmp", "dep", "dap" (default: all)
+
+# Example: 
 #   Rscript script/2_Run_Models/Run_EWAS.R sepages all t2
 #   Rscript script/2_Run_Models/Run_EWAS.R bisc main t3 tp 20261021
 #
