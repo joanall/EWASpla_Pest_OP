@@ -3,7 +3,7 @@
 # BiSC and SEPAGES cohorts. 
 # Author: Joana Llauradó
 # Contact: joana.llaurado@isglobal.org                              
-# Date: Stay in Grenoble October - November 2026
+# Date:  October - November 2026
 #==============================================================================#
 # [DESCRIPTION]: Write the list of EWAS result files to clean to a txt file
 # (one path per line). The txt can be edited by hand before cleaning.
@@ -16,6 +16,9 @@
 # [OUTPUT]: results/3_Clean_Results/files_to_clean.txt
 #==============================================================================#
 
+#==============================================================================#----
+# SET UP                                                                       #----
+#==============================================================================#----
 in_dir    <- "results/2_EWAS_Results"
 out_dir   <- "results/3_Clean_Results"
 list_file <- file.path(out_dir, "files_to_clean.txt")
@@ -24,6 +27,9 @@ dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 args <- commandArgs(trailingOnly = TRUE)
 run_pattern <- if (length(args) >= 1 && args[1] != "") args[1] else "."
 
+#==============================================================================#----
+# FOLDER TO CLEAN                                                              #----
+#==============================================================================#----
 # Run folders matching the pattern
 run_folders <- list.dirs(in_dir, recursive = FALSE, full.names = TRUE)
 run_folders <- run_folders[grepl(run_pattern, basename(run_folders))]
@@ -44,3 +50,7 @@ table(basename(dirname(dirname(all_files))), basename(dirname(all_files)))
 
 writeLines(all_files, list_file)
 cat("List written:", list_file, "|", length(all_files), "files\n")
+
+#==============================================================================#----
+# END OF SCRIPT                                                                #----
+#==============================================================================#----
