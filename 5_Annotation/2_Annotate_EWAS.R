@@ -3,7 +3,7 @@
 # BiSC and SEPAGES cohorts. 
 # Author: Joana Llauradó
 # Contact: joana.llaurado@isglobal.org                              
-# Date: Stay in Grenoble October - November 2026
+# Date: October - November 2026
 #==============================================================================#
 # [DESCRIPTION]: Functional annotation of all CpGs of each cleaned EWAS model.
 # - hg19 annotation: position, relation to CpG island, gene name and group
@@ -19,6 +19,7 @@
 #           results/5_Annotation/cpg_annotation_all.rds (one row per CpG)
 # [OUTPUT]: results/5_Annotation/<run>/<analysis>/<exposure>_<tp>_annotated.rds
 #           results/5_Annotation/files_annotated_index.csv
+#==============================================================================#
 
 #==============================================================================#----
 # SET UP                                                                       #----

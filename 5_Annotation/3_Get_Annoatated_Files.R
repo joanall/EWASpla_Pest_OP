@@ -3,7 +3,7 @@
 # BiSC and SEPAGES cohorts. 
 # Author: Joana Llauradó
 # Contact: joana.llaurado@isglobal.org                              
-# Date: Stay in Grenoble October - November 2026
+# Date: October - November 2026
 #==============================================================================#
 # [DESCRIPTION]: Write the list of annotated EWAS result files (one path per
 # line) and an index table describing each file, for the downstream scripts
@@ -17,6 +17,13 @@
 # [OUTPUT]: results/5_Annotation/files_annotated.txt
 #           results/5_Annotation/files_annotated_index.csv
 #           (path, run, cohort, sample, time_point, run_date, analysis, exposure)
+
+#==============================================================================#
+
+
+#==============================================================================#----
+# SET UP                                                                       #----
+#==============================================================================#----
 
 annot_dir  <- "results/5_Annotation"
 list_file  <- file.path(annot_dir, "files_annotated.txt")
@@ -78,3 +85,6 @@ write.csv(files_index, index_file, row.names = FALSE)
 cat("List written:", list_file, "|", nrow(files_index), "files\n")
 cat("Index written:", index_file, "\n")
 
+#==============================================================================#----
+# END OF SCRIPT                                                                #----
+#==============================================================================#----
