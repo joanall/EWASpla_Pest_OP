@@ -353,6 +353,7 @@ n_subsets
 #5 s4_fruitveg 279
 #6 s5_no_ga_ct 312
 
+saveRDS(df, paste0(outdir, "df_main_recoded.rds"))
 saveRDS(df_main, paste0(outdir, "df_main.rds"))
 saveRDS(df_s1,   paste0(outdir, "df_s1.rds"))
 saveRDS(df_s2,   paste0(outdir, "df_s2.rds"))
@@ -365,6 +366,3 @@ write.csv(n_subsets, paste0(outdir, "n_subsets.csv"), row.names = FALSE)
 # END OF SCRIPT                                                                #----
 #==============================================================================#----
 
-#==============================================================================#----
-# END OF SCRIPT                                                                #----
-#==============================================================================#----
