@@ -3,7 +3,7 @@
 # BiSC and SEPAGES cohorts. 
 # Author: Joana Llauradó
 # Contact: joana.llaurado@isglobal.org                              
-# Date: Stay in Grenoble October - November 2026
+# Date: October - November 2026
 #==============================================================================#
 # [DESCRIPTION]: Volcano plot for each annotated EWAS result (main + sensitivity).
 # Bonferroni-significant CpGs coloured by direction: hyper- vs hypomethylated.
@@ -14,6 +14,7 @@
 #           -> results/5_Annotation/<run>/<analysis>/<exposure>_<tp>_annotated.rds
 # [OUTPUT]: results/6_Analyze_Results/<run>/<analysis>/<exposure>_<tp>_volcanoplot.png
 #           results/6_Analyze_Results/<run>/<analysis>/<exposure>_<tp>_volcanoplot.rds (ggplot object)
+#==============================================================================#
 
 
 #==============================================================================#----
