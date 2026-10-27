@@ -47,7 +47,7 @@ load("../db/general_covars_data/1126_jllaurado_mQTLs.RData") # df2 1080 160
 load("../db/general_covars_data/2023_10_05_Camille_BiSC_23_018.RData") # camille_bic_23_018 1080 174 
 diet_df <- readRDS("../db/general_covars_data/diet_data_08012025.rds") # 809 25 
 
-outfile <- "db/all_covars.rds"
+outfile <- "db/0_Get_Data/all_covars.rds"
 
 #==============================================================================#----
 # SELECT VARS OF INTEREST                                                      #----
@@ -77,62 +77,15 @@ cov_df3 <- diet_df[, c('id_mother',
                      'energy_intake')
                    ]
 
+
 # Join Covariables in 1 df
 # id_bisc in df2 == id_mother in camille_df & diet 
 
 final_df <- merge(cov_df2, cov_df1,by.x = 'id_bisc', 'id_mother')
 final_df <- merge(final_df, cov_df3, by.x = 'id_bisc', by.y = 'id_mother', all = TRUE) # 1080 14 
-
-rm(camille_bisc_23_018, df2, diet_df, cov_df1, cov_df2, cov_df3)
-
-#==============================================================================#----
-# RECODE                                                                       #----
-#==============================================================================#----
-
-# Check - Maternl Age in years
-final_df$age_12w_m[1:10] # OK 
-
-# Check - Maternal Education - 2 cat - Uni/ Non-Uni
-unique(final_df$educ_level_m_3cat) #  NOT OK - RECODE 
-final_df$educ_level_m_3cat[final_df$educ_level_m_3cat == "University"] <- "university"
-final_df$educ_level_m_3cat[final_df$educ_level_m_3cat == "Secondary"] <- "university"
-final_df$educ_level_m_3cat[final_df$educ_level_m_3cat == "Primary or less"] <- "non-university"
-
-# Check smoking - 2 cat - Smoker / Non - Smoker
-unique(final_df$smoke_sust_m) # sustained smojer, non-sustanied smoker, smoker non-smoker
-final_df$smoke_sust_m <- as.character(final_df$smoke_sust_m)
-final_df$smoke_sust_m[final_df$smoke_sust_m == "sustained smoker"] <- "smoker"
-final_df$smoke_sust_m[final_df$smoke_sust_m == "smoker"] <- "smoker"
-final_df$smoke_sust_m[final_df$smoke_sust_m == "non-sustained smoker"] <- "non-smoker"
-final_df$smoke_sust_m[final_df$smoke_sust_m == "non-smoker"] <- "non-smoker"
-
-# Check Pre-pregnancy BMI - Continuous - kg/m2
-final_df$bmi_m_12w[1:10] # OK 
-
-#  Check Parity - Categorical - Nulliparous / Multiparous 
-unique(final_df$parity_m_2cat) # OK 
-
-# Check Fruit and Vegetable Intake - Continutous - g/1000kcal/day
 final_df$fruit_veg_intake <- 1000*((final_df$fruit + final_df$vegetables)/final_df$energy_intake)
 
-# Check Child Ethnicity - Categorical - European / Non-European
-unique(final_df$ethnicity_c_4cat)
-final_df$ethnicity_c_4cat[final_df$ethnicity_c_4cat == "eur_lat_amr"] <- "non-eur"
-final_df$ethnicity_c_4cat[final_df$ethnicity_c_4cat == "lat_amr"] <- "non-eur"
-final_df$ethnicity_c_4cat[final_df$ethnicity_c_4cat == "other"] <- "non-eur"
-
-# Check Child Sex - Categorical - Male / Female
-unique(final_df$sex_0y_c) # OK 
-
-# Check Gestational Age at birth - Continuous - days 
-final_df$gestage_0y_c_days[1:10] # OK 
-
-# Check Pregnancy Complications - Categorical -  Yes/No 
-unique(final_df$any_compl_m_0y_2c) # Ok no/yes levels 
-
-# Check Study Center - Cateogrcal - HSJ / HC / HSCSP - ask 
-unique(final_df$hospital_delivery)
-
+rm(camille_bisc_23_018, df2, diet_df, cov_df1, cov_df2, cov_df3)
 
 # Save df
 saveRDS(final_df, outfile)

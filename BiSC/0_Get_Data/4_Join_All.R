@@ -22,10 +22,10 @@
 #==============================================================================#----
 
 # Define input & output path files 
-infile_chem <- "db/all_pest_op_avg.rds"
-infile_cov <- "db/all_covars.rds"
-infile_dnam <- "db/all_dnam_cov.rds"
-outfile <- "db/final_df_incomplete_cases.rds"
+infile_chem <- "db/0_Get_Data/all_pest_op.rds"
+infile_cov <- "db/0_Get_Data/all_covars.rds"
+infile_dnam <- "db/0_Get_Data/all_dnam_cov.rds"
+outfile <- "db/0_Get_Data/final_df_incomplete_cases.rds"
 
 # Load files 
 chem <- readRDS(infile_chem) # 920  27 

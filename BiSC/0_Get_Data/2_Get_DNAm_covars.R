@@ -27,7 +27,7 @@ infile_dnam_cov <- "../db/methylation_data/covars_meth_BISC.RDS"
 infile_ids <- "../db/methylation_data/ids_dictionary.RDS"
 
 # Define output path files 
-outfile <- "db/all_dnam_cov.rds"
+outfile <- "db/0_Get_Data/all_dnam_cov.rds"
 
 #==============================================================================#----
 # JOIN DBs                                                                     #----

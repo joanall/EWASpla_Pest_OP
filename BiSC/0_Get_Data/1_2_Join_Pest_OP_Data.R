@@ -22,11 +22,11 @@
 # Load libraries
 
 # Define input path files 
-file_pest_12w_32w <- "db/all_pest_12w_32w.rds"
-file_op_12w_32w <- "db/all_op_12w_32w.rds"
+file_pest_12w_32w <- "db/0_Get_Data/all_pest_12w_32w.rds"
+file_op_12w_32w <- "db/0_Get_Data/all_op_12w_32w.rds"
 
 # Define output path files 
-output_file <- "db/all_pest_op.rds"
+output_file <- "db/0_Get_Data/all_pest_op.rds"
 
 
 #==============================================================================#----
@@ -34,7 +34,7 @@ output_file <- "db/all_pest_op.rds"
 #==============================================================================#----
 
 # 1. Load both dfs
-pest_all <- readRDS(file_pest_12w_32w) # 920 x 7 vars (3 pest x 2 tp + 1 ID)
+pest_all <- readRDS(file_pest_12w_32w) # 920 x 15 vars (3 pest x 2 tp + 1 ID)
 op_all <- readRDS(file_op_12w_32w) # 920 x 15 vars (5 op x 2 tp + 3 molar sum + 1 ID)
 
 # 2. Join them by Participant (mother) ID
@@ -60,8 +60,12 @@ summary(is.na(pest_op))
 # Check N with missing in each imepoint ----------------------------------------
 
 # 1. Define cols chemicals each timepoints 
-cols_12w <- grep("_12w", names(pest_op), value = TRUE) # 8 
-cols_32w <- grep("_32w", names(pest_op), value = TRUE) # 8
+cols_12w <- c("cc.DMP_m_12w_log2i", "cc.DMTP_m_12w_log2i", "cc.DMDTP_m_12w_dic",
+              "cc.DEP_m_12w_log2i", "cc.DETP_m_12w_log2i",
+              "sum_DMP_12w","sum_DEP_12w","sum_DAP_12w")
+cols_32w <- c("cc.DMP_m_32w_log2i", "cc.DMTP_m_32w_log2i", "cc.DMDTP_m_32w_dic",
+              "cc.DEP_m_32w_log2i", "cc.DETP_m_32w_log2i",
+              "sum_DMP_32w","sum_DEP_32w","sum_DAP_32w")
 
 # 2. Flag each participant as missing at a timepoint if ANY chemicals at that timepoint are NA
 missing_12w <- apply(pest_op[, cols_12w], 1, function(row) any(is.na(row))) # factor true/false
