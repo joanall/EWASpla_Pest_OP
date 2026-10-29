@@ -28,7 +28,7 @@
 # Arguments:
 #   1) cohort:     sepages / bisc
 #   2) analysis:   main / s1 ... s5 / sens (= s1-s5) / all (= main + s1-s5)
-#   3) time point: t2 / t3
+#   3) time point: t2 / t3 / avg 
 #   4) sample:     2tp (women with both time points; default)
 #                  tp  (all women with this time point; BiSC only)
 #   5) run date:   YYYYMMDD (optional; default today)
@@ -37,6 +37,16 @@
 # Example: 
 #   Rscript script/2_Run_Models/Run_EWAS.R sepages all t2
 #   Rscript script/2_Run_Models/Run_EWAS.R bisc main t3 tp 20261021
+# maximising the sample
+# Rscript script/2_Run_Models/Run_EWAS.R bisc main avg tp  <date>
+# restricted to both time points
+#Rscript script/2_Run_Models/Run_EWAS.R bisc main avg 2tp <date>
+
+#  nohup Rscript script/2_Run_Models/Run_EWAS.R sepages all avg 2tp 20261021 \
+#  results/2_EWAS_Results/sepages_main_avg.log 2>&1 &
+
+
+
 #
 # [INPUT]:  subsets (see COHORT SETTINGS) and preprocessed betas
 #           (rows = CpGs, columns = Basename)
