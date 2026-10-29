@@ -20,9 +20,9 @@
 #           results/6_Analyze_Results/summary_tables/<cohort>_<sample>_<date>/
 #           table1_suggestive_t2.rds, table2_suggestive_t3.rds
 # [OUTPUT]: results/6_Analyze_Results/summary_tables/<cohort>_<sample>_<date>/
-#           table3_t2_vs_t3.csv, table3_lookup_other_tp.csv/.rds,
-#           table4_shared_exposures.csv/.rds,
-#           overlap_matrix.csv, overlap_heatmap.png
+#           table3_t2_vs_t3.xlsx, table3_lookup_other_tp.xlsx/.rds,
+#           table4_shared_exposures.xlsx/.rds,
+#           overlap_matrix.xlsx, overlap_heatmap.png
 #==============================================================================#
 
 #==============================================================================#----
@@ -30,6 +30,7 @@
 #==============================================================================#----
 source("script/00_template_plot.R")
 source("script/00_functions.R")
+library(writexl)   # .xlsx output: no separator/decimal issues when opening in Excel
 
 index_file   <- "results/5_Annotation/files_annotated_index.csv"
 cutoff_sugg  <- 1e-5    # suggestive threshold (as in 3a; plot subtitle only)
@@ -107,7 +108,7 @@ lookup_cols <- c("exposure", "time_point", "CpG", "gene_name", "Effect", "pvalue
                  "other_tp", "Effect_other_tp", "pvalue_other_tp", "replicated_other_tp")
 lookup_tab  <- top_main[order(top_main$exposure, top_main$time_point, top_main$pvalue),
                         intersect(lookup_cols, colnames(top_main))]
-write.csv(lookup_tab, file.path(outdir, "table3_lookup_other_tp.csv"), row.names = FALSE)
+write_xlsx(lookup_tab, file.path(outdir, "table3_lookup_other_tp.xlsx"))
 saveRDS(lookup_tab, file.path(outdir, "table3_lookup_other_tp.rds"))
 
 #==============================================================================#----
@@ -136,7 +137,7 @@ for (e in exposures) {
   ))
 }
 table3
-write.csv(table3, file.path(outdir, "table3_t2_vs_t3.csv"), row.names = FALSE)
+write_xlsx(table3, file.path(outdir, "table3_t2_vs_t3.xlsx"))
 
 #==============================================================================#----
 # TABLE 4: CpGs SHARED BETWEEN EXPOSURES (SAME TIME POINT)                     #----
@@ -149,7 +150,7 @@ shared <- shared[shared$n_exposures >= 2, ]
 shared$gene_name <- top_main$gene_name[match(shared$CpG, top_main$CpG)]
 shared <- shared[order(shared$time_point, -shared$n_exposures), ]
 shared
-write.csv(shared, file.path(outdir, "table4_shared_exposures.csv"), row.names = FALSE)
+write_xlsx(shared, file.path(outdir, "table4_shared_exposures.xlsx"))
 saveRDS(shared, file.path(outdir, "table4_shared_exposures.rds"))
 
 #==============================================================================#----
@@ -165,7 +166,10 @@ incidence  <- unclass(table(top_main$CpG, factor(top_main$combo, levels = combo_
 overlap_mx <- crossprod(incidence * 1)
 overlap_mx
 stopifnot(all(diag(overlap_mx) == table(top_main$combo)[combo_order]))   # diagonal = Tables 1-2
-write.csv(overlap_mx, file.path(outdir, "overlap_matrix.csv"))
+# write_xlsx drops row names -> model names as first column
+overlap_out <- data.frame(model = rownames(overlap_mx), unclass(overlap_mx),
+                          check.names = FALSE, row.names = NULL)
+write_xlsx(overlap_out, file.path(outdir, "overlap_matrix.xlsx"))
 
 df_ov   <- expand.grid(x = combo_order, y = combo_order)
 df_ov$n <- as.vector(overlap_mx)

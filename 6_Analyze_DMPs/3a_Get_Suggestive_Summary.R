@@ -19,13 +19,14 @@
 # [INPUT]:  results/5_Annotation/files_annotated_index.csv
 #           -> results/5_Annotation/<run>/<analysis>/<exposure>_<tp>_annotated.rds
 # [OUTPUT]: results/6_Analyze_Results/summary_tables/<cohort>_<sample>_<date>/
-#           table1_suggestive_t2.csv/.rds, table2_suggestive_t3.csv/.rds
+#           table1_suggestive_t2.xlsx/.rds, table2_suggestive_t3.xlsx/.rds
 #==============================================================================#
 
 #==============================================================================#----
 # SET UP                                                                       #----
 #==============================================================================#----
 source("script/00_functions.R")
+library(writexl)   # .xlsx output: no separator/decimal issues when opening in Excel
 
 index_file   <- "results/5_Annotation/files_annotated_index.csv"
 cutoff_sugg  <- 1e-5    # suggestive threshold
@@ -112,7 +113,7 @@ for (tp in c("t2", "t3")) {
   tab <- tab[order(tab$exposure, tab$pvalue), ]
   n_tab <- ifelse(tp == "t2", 1, 2)
   file_base <- file.path(outdir, paste0("table", n_tab, "_suggestive_", tp))
-  write.csv(tab, paste0(file_base, ".csv"), row.names = FALSE)
+  write_xlsx(tab, paste0(file_base, ".xlsx"))
   saveRDS(tab, paste0(file_base, ".rds"))
   cat("Table", n_tab, "-", tp, ":", nrow(tab), "suggestive CpGs\n")
 }
