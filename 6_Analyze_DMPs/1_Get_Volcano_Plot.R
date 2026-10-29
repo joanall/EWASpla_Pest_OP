@@ -32,7 +32,7 @@ dir.create(output_folder, recursive = TRUE, showWarnings = FALSE)
 args <- commandArgs(trailingOnly = TRUE)
 run_pattern <- if (length(args) >= 1 && args[1] != "") args[1] else "."
 # files_index <- files_index[1, ]   # TEST - remove for the real run
-# run_pattern <- "sepages_2tp_t2_20261021"   # all 36 files of that run (6 analyses × 6 exposures)
+run_pattern <- "sepages_2tp_t2_20261021"   # all 36 files of that run (6 analyses × 6 exposures)
 files_index <- read.csv(index_file, stringsAsFactors = FALSE)
 files_index <- files_index[grepl(run_pattern, files_index$run), ]
 cat("Files to plot:", nrow(files_index), "\n")
@@ -45,7 +45,7 @@ stopifnot(all(file.exists(files_in)))
 # Exposure labels for titles
 exp_code   <- c("24d",   "3pba",  "tcpy", "dmp",  "dep",  "dap")
 exp_labels <- c("2,4-D", "3-PBA", "TCPy", "ΣDMP", "ΣDEP", "ΣDAP")
-
+cutoff_sugg <- 1E-05
 
 #==============================================================================#----
 # VOLCANO PLOTS - SINGLE                                                       #----
@@ -65,7 +65,8 @@ for (i in seq_len(nrow(files_index))) {
   # Plot 1. Volcano plot for one exposure, time point and analysis: effect (x)
   # vs -log10(p) (y); Bonferroni CpGs coloured by direction.
   p_volcano <- volcano_plot(ewas_results,
-                            title = paste0(exp_label, " - ", f$time_point, " (", f$analysis, ")"))
+                            title = paste0(exp_label, " - ", f$time_point, " (", f$analysis, ")"),
+                            p_cutoff = cutoff_sugg)
   
   # Save: same <run>/<analysis>/ structure as the results
   plot_path <- file.path(output_folder, f$run, f$analysis)
