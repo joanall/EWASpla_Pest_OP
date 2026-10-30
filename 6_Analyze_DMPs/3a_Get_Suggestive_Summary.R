@@ -54,7 +54,7 @@ outdir <- file.path("results/6_Analyze_Results/summary_tables", tag)
 dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
 
 exposures <- unique(main_index$exposure)
-keep_cols <- c("CpG", "chr", "pos", "gene_name", "Relation_to_Island", "States15_FP",
+keep_cols <- c("CpG", "chr", "pos", "gene_name", "UCSC_RefGene_Group","States15_FP",
                "Effect", "SE", "pvalue", "pval_bn")
 
 #==============================================================================#----
