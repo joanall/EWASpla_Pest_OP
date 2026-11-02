@@ -29,6 +29,15 @@ exp_order <- c("24d", "3pba", "tcpy", "dmp", "dep", "dap")
 run_date <- "20261021"
 run_t2   <- paste0("sepages_2tp_t2_", run_date)
 run_t3   <- paste0("sepages_2tp_t3_", run_date)
+run_avg  <- paste0("sepages_2tp_avg_", run_date)
+
+# Time points: run folder and label for titles
+tp_runs   <- c(t2 = run_t2, t3 = run_t3, avg = run_avg)
+tp_labels <- c(t2 = "second trimester", t3 = "third trimester",
+               avg = "average of second and third trimester")
+
+# Check: every run folder present in the QQ index (should be character(0))
+setdiff(tp_runs, unique(qq_index$run))
 
 # Available plots
 table(qq_index$run, qq_index$analysis)
@@ -54,7 +63,13 @@ figures <- list(
   sepages_main_t3 = list(runs = run_t3, analyses = "main",
                          exposures = exp_order, ncol = 3,
                          title = "SEPAGES - main models, third trimester",
-                         width = 24, height = 16)
+                         width = 24, height = 16),
+  
+  # 3. SEPAGES main model, six exposures, average t2-t3
+  sepages_main_avg = list(runs = run_avg, analyses = "main",
+                          exposures = exp_order, ncol = 3,
+                          title = "SEPAGES - main models, average of second and third trimester",
+                          width = 24, height = 16)
 )
 
 #==============================================================================#----
@@ -62,19 +77,18 @@ figures <- list(
 #==============================================================================#----
 
 for (e in exp_order) {
-  for (tp in c("t2", "t3")) {
-    run_tp <- if (tp == "t2") run_t2 else run_t3
+  for (tp in names(tp_runs)) {
     figures[[paste0("sepages_", e, "_sens_", tp)]] <-
-      list(runs = run_tp,
+      list(runs = tp_runs[[tp]],
            analyses = c("main", paste0("s", 1:5)),
            exposures = e, ncol = 3,
            title = paste0("SEPAGES - ", e, ", main and sensitivity analyses, ",
-                          toupper(tp)),
+                          tp_labels[[tp]]),
            width = 24, height = 16)
   }
 }
 
-# Check: 2 main figures + 6 exposures x 2 time points = 14
+# Check: 3 main figures + 6 exposures x 3 time points = 21
 cat("Figures defined:", length(figures), "\n")
 stopifnot(!any(duplicated(names(figures))))
 #==============================================================================#----
