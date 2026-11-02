@@ -66,13 +66,16 @@ files_index <- data.frame(
   time_point = sapply(run_bits, function(x) x[3]),
   run_date   = sapply(run_bits, function(x) x[4]),
   analysis   = basename(dirname(all_files)),
-  exposure   = sub("_t[23]_annotated$", "", tools::file_path_sans_ext(basename(all_files))),
+  exposure   = sub("_(t2|t3|avg)_annotated$", "", tools::file_path_sans_ext(basename(all_files))),
   stringsAsFactors = FALSE
 )
 
 # Check: exposure time point matches the folder time point
 stopifnot(all(endsWith(files_index$path,
                        paste0("_", files_index$time_point, "_annotated.rds"))))
+# Check: exposure codes without the time point suffix (should be character(0))
+setdiff(unique(files_index$exposure), c("24d", "3pba", "tcpy", "dmp", "dep", "dap"))
+stopifnot(all(files_index$exposure %in% c("24d", "3pba", "tcpy", "dmp", "dep", "dap")))
 # Check: files per run and analysis (6 expected each)
 table(files_index$run, files_index$analysis)
 
