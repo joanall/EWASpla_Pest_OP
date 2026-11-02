@@ -358,6 +358,7 @@ for (v in avg_vars) df[[v]][is.nan(df[[v]])] <- NA
 # Check: averages lie between the two time points
 summary(df[, c(avg_vars, "pest_24d_any_avg")])
 
+
 #==============================================================================#----
 # DNAm + EXPOSURE                                                              #----
 #==============================================================================#----
@@ -463,6 +464,9 @@ n_subsets <- data.frame(
              nrow(df_s3_avg),   nrow(df_s4_avg), nrow(df_s5_avg))
 )
 n_subsets
+
+# Save recorded 
+saveRDS(df, paste0(outdir, "df_all_recoded.rds"))
 
 # T2 only and T3 only
 saveRDS(df_main_t2, paste0(outdir, "df_main_t2.rds"))
