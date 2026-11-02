@@ -11,7 +11,7 @@
 #
 # Argument (optional): pattern for the run folders to include (regular
 # expression; default: all), e.g. "sepages_2tp_t[23]_old"
-#   Rscript script/3_Clean_Results/3_Get_Cleaned_Files.R "sepages_2tp_t[23]_old"
+#   Rscript script/3_Clean_Results/3_Get_Cleaned_Files.R "sepages_2tp_avg_20261021"
 #
 # [INPUT]:  results/3_Clean_Results/<run>/<analysis>/<exposure>_<tp>.rds
 # [OUTPUT]: results/3_Clean_Results/files_cleaned.txt
@@ -32,7 +32,6 @@ run_pattern <- if (length(args) >= 1 && args[1] != "") args[1] else "."
 
 # Run folders matching the pattern
 run_folders <- list.dirs(clean_dir, recursive = FALSE, full.names = TRUE)
-run_folders <- run_folders[5:6]
 run_folders <- run_folders[grepl(run_pattern, basename(run_folders))]
 cat("Run folders:\n"); print(basename(run_folders))
 stopifnot(length(run_folders) > 0)
@@ -62,9 +61,13 @@ files_index <- data.frame(
   time_point = sapply(run_bits, function(x) x[3]),
   run_date   = sapply(run_bits, function(x) x[4]),
   analysis   = basename(dirname(all_files)),
-  exposure   = sub("_t[23]$", "", tools::file_path_sans_ext(basename(all_files))),
+  exposure   = sub("_(t2|t3|avg)$", "", tools::file_path_sans_ext(basename(all_files))),
   stringsAsFactors = FALSE
 )
+
+# Check: exposure codes without the time point suffix (should be character(0))
+setdiff(unique(files_index$exposure), c("24d", "3pba", "tcpy", "dmp", "dep", "dap"))
+stopifnot(all(files_index$exposure %in% c("24d", "3pba", "tcpy", "dmp", "dep", "dap")))
 
 # Check: exposure time point matches the folder time point
 stopifnot(all(grepl(paste0("_", files_index$time_point, ".rds$"), files_index$path)))
@@ -80,3 +83,4 @@ writeLines(files_index$path, list_file)
 write.csv(files_index, index_file, row.names = FALSE)
 cat("List written:", list_file, "|", nrow(files_index), "files\n")
 cat("Index written:", index_file, "\n")
+
