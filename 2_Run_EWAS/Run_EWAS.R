@@ -8,7 +8,7 @@
 # [DESCRIPTION]: EWAS of pesticide exposure on placental DNAm, for BiSC and
 # SEPAGES, main model and sensitivity analyses. One time point per run.
 # Robust linear regression per CpG, run in parallel by chunks.
-# Outer loop: analyses (main, s1-s5). Inner loop: 6 exposures.
+# Outer loop: analyses (main, s1-s6). Inner loop: 6 exposures.
 #
 # Analyses (main covariates + cell types, except as noted):
 #  main = Main model
@@ -17,6 +17,10 @@
 #  s3   = Adjusting for specific gravity (at the same time point)
 #  s4   = Adjusting for fruit and vegetable intake
 #  s5   = Without gestational age and without cell types
+#  s6   = Exposure outliers winsorized at the 1st and 99th percentiles
+#         (main subset and main covariates; continuous exposures only,
+#         2,4-D is binary and left unchanged; percentiles computed in the
+#         analytic sample of each model)
 #
 # Exposures: 2,4-D (0 = not detected, 1 = detected), 3-PBA, TCPy (imputed,
 #            log2), ΣDMP, ΣDEP, ΣDAP (molar sums, log2). All numeric.
@@ -27,7 +31,7 @@
 #
 # Arguments:
 #   1) cohort:     sepages / bisc
-#   2) analysis:   main / s1 ... s5 / sens (= s1-s5) / all (= main + s1-s5)
+#   2) analysis:   main / s1 ... s6 / sens (= s1-s6) / all (= main + s1-s6)
 #   3) time point: t2 / t3 / avg 
 #   4) sample:     2tp (women with both time points; default)
 #                  tp  (all women with this time point; BiSC only)
@@ -82,13 +86,13 @@ if (cohort == "sepages" && sample_set == "tp") stop("SEPAGES has only the 2tp sa
 
 # Analyses to run
 if (analysis_arg == "all") {
-  which_analyses <- c("main", paste0("s", 1:5))
+  which_analyses <- c("main", paste0("s", 1:6))
 } else if (analysis_arg == "sens") {
-  which_analyses <- paste0("s", 1:5)
+  which_analyses <- paste0("s", 1:6)
 } else {
   which_analyses <- analysis_arg
 }
-stopifnot(all(which_analyses %in% c("main", paste0("s", 1:5))))
+stopifnot(all(which_analyses %in% c("main", paste0("s", 1:6))))
 
 #==============================================================================#----
 # COHORT SETTINGS                                                              #----
@@ -107,8 +111,10 @@ if (cohort == "bisc") {
 }
 
 # Subset file per analysis: df_main.rds (2tp) or df_main_t2.rds (tp)
+# s6 (winsorized exposures) uses the main subset: no df_s6 file needed
 file_suffix <- if (sample_set == "2tp") "" else paste0("_", time_point)
-subset_path <- setNames(paste0(subset_dir, "df_", which_analyses, file_suffix, ".rds"),
+subset_name <- ifelse(which_analyses == "s6", "main", which_analyses)
+subset_path <- setNames(paste0(subset_dir, "df_", subset_name, file_suffix, ".rds"),
                         which_analyses)
 subset_path
 stopifnot(all(file.exists(subset_path)))
@@ -165,8 +171,12 @@ analysis_covars <- list(
   s2   = c(setdiff(main_cov, "ch_eth"), cell_types),                # excl. non-European
   s3   = c(main_cov, cell_types, paste0("pool_sg_", time_point)),   # + SG, same time point
   s4   = c(main_cov, cell_types, "mo_fv_g1000kcal"),                # + fruit & vegetables
-  s5   = setdiff(main_cov, "gest_age")                              # without GA and cell types
+  s5   = setdiff(main_cov, "gest_age"),                             # without GA and cell types
+  s6   = c(main_cov, cell_types)                                    # winsorized exposures
 )
+
+# s6: percentiles at which continuous exposures are winsorized
+winsor_probs <- c(0.01, 0.99)
 
 #==============================================================================#----
 # LOAD BETAS (ONCE)                                                            #----
@@ -242,14 +252,43 @@ for (a in which_analyses) {
     n_model  <- sum(complete.cases(metadata[, c(exposure, covars)]))
     cat("\n--", a, "|", analysis_name[e], "| N in the model:", n_model, "\n")
     
+    # Copy of the metadata for this model (only modified in s6)
+    metadata_model <- metadata
+    
+    # s6: winsorize the exposure at P1/P99 of the analytic sample of this model
+    if (a == "s6") {
+      in_model  <- complete.cases(metadata_model[, c(exposure, covars)])
+      exp_model <- metadata_model[in_model, exposure]
+      n_values  <- length(unique(exp_model))
+      
+      if (n_values <= 2) {
+        cat("s6: binary exposure (", n_values, "values ), not winsorized\n")
+      } else {
+        winsor_limits <- quantile(exp_model, probs = winsor_probs, na.rm = TRUE, names = FALSE)
+        n_low  <- sum(exp_model < winsor_limits[1])
+        n_high <- sum(exp_model > winsor_limits[2])
+        
+        exp_winsor <- pmin(pmax(exp_model, winsor_limits[1]), winsor_limits[2])
+        metadata_model[in_model, exposure] <- exp_winsor
+        
+        # Check: limits, number of values replaced, range before / after
+        cat("s6: winsor limits (P", winsor_probs[1] * 100, "/P", winsor_probs[2] * 100, "):",
+            round(winsor_limits, 3), "\n")
+        cat("s6: values replaced - low:", n_low, "| high:", n_high, "\n")
+        cat("s6: range before:", round(range(exp_model), 3),
+            "| after:", round(range(metadata_model[in_model, exposure]), 3), "\n")
+        stopifnot(sum(metadata_model[in_model, exposure] != exp_model) == n_low + n_high)
+      }
+    }
+    
     start_time <- proc.time()
     chunk_results_list <- foreach(chunk = cpg_chunks,
                                   .packages = c("MASS", "sfsmisc"),
-                                  .export   = c("rlm_single_cpg", "exposure", "covars", "metadata")) %dopar% {
+                                  .export   = c("rlm_single_cpg", "exposure", "covars", "metadata_model")) %dopar% {
                                     rlm_single_cpg(cpg_chunk  = chunk,
                                                    exposures  = exposure,
                                                    covariates = covars,
-                                                   metadata   = metadata)
+                                                   metadata   = metadata_model)
                                   }
     run_time <- proc.time() - start_time
     cat("Run time (min):", round(run_time["elapsed"] / 60, 1), "\n")
