@@ -14,6 +14,8 @@
 # Uses the ggplot objects saved by 1_Get_Volcano_Plot.R (run it first).
 # Argument (optional): pattern for the runs (default: all), e.g.
 #   Rscript script/6_Analyze_Results/1c_Get_Volcano_Panel_Shared_Axes.R "sepages_2tp_t[23]_20261021"
+#   Rscript script/6_Analyze_Results/1c_Get_Volcano_Panel_Shared_Axes.R "sepages_2tp_avg_20261021"
+
 #
 # [INPUT]:  results/5_Annotation/files_annotated_index.csv
 #           results/6_Analyze_Results/<run>/main/<exposure>_<tp>_volcanoplot.rds
