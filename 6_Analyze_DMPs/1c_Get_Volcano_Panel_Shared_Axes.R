@@ -5,12 +5,12 @@
 # Contact: joana.llaurado@isglobal.org                              
 # Date: October - November 2026
 #==============================================================================#
-# [DESCRIPTION]: Panel of volcano plots (main models): the 6 exposures of one
-# time point (t2, t3, average) together in one figure (2 x 3), with SHARED
-# axes so the 6 exposures are directly comparable:
-#   x: symmetric, -max|effect| to +max|effect| across the 6 plots
-#   y: 0 to max -log10(p) across the 6 plots
-# Same as 1b_Get_Volcano_Panel.R except for the shared axes.
+# [DESCRIPTION]: Panel of volcano plots (main models): the 5 exposures of one
+# time point (t2, t3, average) together in one figure (2 x 3, last slot empty),
+# with SHARED axes so the exposures are directly comparable.
+# ΣDAP (composite of ΣDMP + ΣDEP) is not plotted.
+#   x: symmetric, -max|effect| to +max|effect| across the 5 plots
+#   y: 0 to max -log10(p) across the 5 plots
 # Uses the ggplot objects saved by 1_Get_Volcano_Plot.R (run it first).
 # Argument (optional): pattern for the runs (default: all), e.g.
 #   Rscript script/6_Analyze_Results/1c_Get_Volcano_Panel_Shared_Axes.R "sepages_2tp_t[23]_20261021"
@@ -53,10 +53,15 @@ stopifnot(all(file.exists(files_index$plot_rds)))           # run script 1 first
 exp_code   <- c("24d",   "3pba",  "tcpy", "dmp",  "dep",  "dap")
 exp_labels <- c("2,4-D", "3-PBA", "TCPy", "ΣDMP", "ΣDEP", "ΣDAP")
 
+# Exposures plotted in the panel (ΣDAP = ΣDMP + ΣDEP: composite, not plotted)
+exp_in_panel <- c("24d", "3pba", "tcpy", "dmp", "dep")
+stopifnot(all(exp_in_panel %in% exp_code))
+files_index <- files_index[files_index$exposure %in% exp_in_panel, ]
+stopifnot(!any(files_index$exposure == "dap"))
+
 # One panel per run x time point
 files_index$panel <- paste(files_index$run, files_index$time_point, sep = "|")
-table(files_index$panel)   # 6 per panel
-
+table(files_index$panel)   # 5 per panel (ΣDAP not plotted)
 
 #==============================================================================#----
 # VOLCANO PLOTS - PANEL WITH SHARED AXES                                       #----
@@ -69,7 +74,7 @@ for (pn in unique(files_index$panel)) {
   run_i   <- f_panel$run[1]
   tp_i    <- f_panel$time_point[1]
   cat("\nPanel:", run_i, "|", tp_i, "| n plots:", nrow(f_panel), "\n")
-  if (nrow(f_panel) != 6) warning("Panel ", pn, " has ", nrow(f_panel), " plots (expected 6)")
+  if (nrow(f_panel) != length(exp_in_panel)) warning("Panel ", pn, " has ", nrow(f_panel), " plots (expected ", length(exp_in_panel), ")")  
   
   # Read the single plots and the x/y range each one shows
   # (range in plot units: effect on x, -log10(p) on y, incl. threshold lines)
@@ -79,12 +84,21 @@ for (pn in unique(files_index$panel)) {
   for (j in seq_len(nrow(f_panel))) {
     p_single  <- readRDS(f_panel$plot_rds[j])
     exp_label <- exp_labels[match(f_panel$exposure[j], exp_code)]
-    plot_list[[j]] <- p_single + labs(title = exp_label, subtitle = NULL)
+    
+    # Same legend in every plot (all 3 levels, with symbols), so patchwork collects one legend
+    p_single$layers[[1]]$show.legend <- TRUE   # layer 1 = geom_point
+    plot_list[[j]] <- p_single +
+      labs(title = exp_label, subtitle = NULL) +
+      scale_colour_manual(values = pal_direction, limits = names(pal_direction), drop = FALSE) +
+      guides(colour = guide_legend(override.aes = list(size = 2, alpha = 1)))
     
     p_scales      <- layer_scales(p_single)
     x_range[j, ]  <- p_scales$x$range$range
     y_range[j, ]  <- p_scales$y$range$range
   }
+  
+  # Check: every plot was read and has a range
+  stopifnot(length(plot_list) == nrow(f_panel), !any(is.na(x_range)), !any(is.na(y_range)))
   
   # Check: range of each plot before sharing
   print(data.frame(exposure = f_panel$exposure,
@@ -102,13 +116,13 @@ for (pn in unique(files_index$panel)) {
                       ylim = c(0, y_lim_shared))
   }
   
-  # Plot 1. Volcano plots of the 6 exposures for one time point (main models),
-  # shared axes: effect (x) vs -log10(p) (y); Bonferroni CpGs coloured by direction.
-  p_panel <- wrap_plots(plot_list, ncol = 3) +
-    plot_layout(guides = "collect") +
+  # Plot 1. Volcano plots of the 5 exposures for one time point (main models),
+  # shared axes: effect (x) vs -log10(p) (y); suggestive CpGs (p < 1e-5) coloured by direction.  p_panel <- wrap_plots(plot_list, ncol = 3) +
+  p_panel <- wrap_plots(plot_list, ncol = 3, guides = "collect")
+  p_panel <- p_panel +
     plot_annotation(title = paste0("Main models - ", tp_i, " (shared axes)"),
                     subtitle = run_i)
-  
+  stopifnot(inherits(p_panel, "patchwork"))
   plot_path <- file.path(output_folder, run_i, "main")
   save_plot(p_panel, file.path(plot_path, paste0("volcano_panel_main_", tp_i, "_shared_axes.png")),
             width = 36, height = 22)
