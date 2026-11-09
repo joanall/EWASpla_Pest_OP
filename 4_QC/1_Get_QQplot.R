@@ -9,9 +9,13 @@
 # cleaned EWAS result file. Each QQ plot is saved as .png and as a ggplot
 # object (.rds), so 5_Join_QQ_Plots.R can combine any set of them.
 #
-# Argument (optional): pattern for the run folders to include (regular
-# expression; default: all)
-#   Rscript script/4_QQ_Plots/4_QQ_Plots.R "sepages_2tp_t[23]_old"
+# Arguments (optional):
+#   1) pattern for the run folders to include (regular expression; default: all)
+#   2) analyses to include, comma-separated (default: all), e.g. "s6"
+#   Rscript script/4_QC/1_Get_QQplot.R "sepages_2tp_t[23]_old"
+#   Rscript script/4_QC/1_Get_QQplot.R "^bisc_tp_(t2|t3|avg)_20261022$" s6
+# qq_index.csv is updated, not overwritten: rows of the files plotted now are
+# replaced, rows of other files are kept.
 #
 # [INPUT]:  results/3_Clean_Results/files_cleaned_index.csv
 #           (from 3_Get_Cleaned_Files.R: path, run, cohort, sample,
@@ -33,6 +37,7 @@ dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
 args <- commandArgs(trailingOnly = TRUE)
 run_pattern <- if (length(args) >= 1 && args[1] != "") args[1] else "."
+analyses    <- if (length(args) >= 2 && args[2] != "") strsplit(args[2], ",")[[1]] else NULL
 
 # Exposure labels for titles
 exp_code   <- c("24d",   "3pba",  "tcpy", "dmp",  "dep",  "dap")
@@ -41,6 +46,11 @@ exp_labels <- c("2,4-D", "3-PBA", "TCPy", "ΣDMP", "ΣDEP", "ΣDAP")
 # Files to plot
 files_index <- read.csv(index_file, stringsAsFactors = FALSE)
 files_index <- files_index[grepl(run_pattern, files_index$run), ]
+if (!is.null(analyses)) {
+  setdiff(analyses, unique(files_index$analysis))   # should be character(0)
+  files_index <- files_index[files_index$analysis %in% analyses, ]
+}
+table(files_index$run, files_index$analysis)       # check: files per run x analysis
 cat("Files to plot:", nrow(files_index), "\n")
 stopifnot(nrow(files_index) > 0)
 stopifnot(all(file.exists(files_index$path)))
@@ -98,8 +108,22 @@ for (i in seq_len(nrow(files_index))) {
 #==============================================================================#----
 
 qq_index[, c("run", "analysis", "exposure", "n_cpgs", "lambda", "lower_ci", "upper_ci")]
-write.csv(qq_index, file.path(out_dir, "qq_index.csv"), row.names = FALSE)
-cat("Index written:", file.path(out_dir, "qq_index.csv"), "\n")
+
+# Update the existing index: drop old rows of the files plotted now, add the new ones
+qq_index_file <- file.path(out_dir, "qq_index.csv")
+if (file.exists(qq_index_file)) {
+  qq_index_old <- read.csv(qq_index_file, stringsAsFactors = FALSE)
+  n_old <- nrow(qq_index_old)
+  qq_index_old <- qq_index_old[!qq_index_old$path %in% qq_index$path, ]
+  cat("Index: kept", nrow(qq_index_old), "of", n_old, "old rows | added", nrow(qq_index), "\n")
+  qq_index_old <- qq_index_old[, colnames(qq_index_old) %in% colnames(qq_index), drop = FALSE]
+  for (col_new in setdiff(colnames(qq_index), colnames(qq_index_old))) qq_index_old[[col_new]] <- NA
+  qq_index <- rbind(qq_index_old[, colnames(qq_index)], qq_index)
+}
+stopifnot(!anyDuplicated(qq_index$path))
+table(qq_index$run, qq_index$analysis)   # check: all runs / analyses in the index
+write.csv(qq_index, qq_index_file, row.names = FALSE)
+cat("Index written:", qq_index_file, "\n")
 
 #==============================================================================#----
 # END OF SCRIPT                                                                #----
