@@ -17,7 +17,7 @@
 #   3b_Get_Consistency_Summary.R, which reads Tables 1-2 produced here.
 # Argument: pattern for the runs (one cohort, sample and run date), e.g.
 #   Rscript script/6_Analyze_Results/3a_Get_Suggestive_Summary.R "sepages_2tp_t[23]_20261021"
-#   Rscript script/6_Analyze_DMPs/3a_Get_Suggestive_Summary.R "bisc_tp_(t2|t3|avg)_20261022"
+#   Rscript script/6_Analyze_Results/3a_Get_Suggestive_Summary.R "bisc_2tp_(t2|t3|avg)_20261022"
 #
 # [INPUT]:  results/5_Annotation/files_annotated_index.csv
 #           -> results/5_Annotation/<run>/<analysis>/<exposure>_<tp>_annotated.rds
@@ -32,7 +32,7 @@
 source("script/00_functions.R")
 library(writexl)   # .xlsx output: no separator/decimal issues when opening in Excel
 
-index_file   <- "results/bisc/5_Annotation/files_annotated_index.csv"
+index_file   <- "results/5_Annotation/files_annotated_index.csv"
 cutoff_sugg  <- 1e-5    # suggestive threshold
 cutoff_nom   <- 0.05    # nominal threshold for look-up replication
 
@@ -54,7 +54,7 @@ main_index <- files_index[files_index$analysis == "main", ]
 sens_index <- files_index[files_index$analysis != "main", ]
 
 tag    <- paste(main_index$cohort[1], main_index$sample[1], main_index$run_date[1], sep = "_")
-outdir <- file.path("results/bisc/6_Analyze_Results/summary_tables", tag)
+outdir <- file.path("results/6_Analyze_Results/summary_tables", tag)
 dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
 
 exposures <- unique(main_index$exposure)
