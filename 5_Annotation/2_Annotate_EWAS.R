@@ -13,7 +13,7 @@
 #
 # Argument (optional): pattern for the run folders to include (regular
 # expression; default: all)
-#   Rscript script/5_Annotation/Annotate_EWAS.R "sepages_2tp_t[23]_old"
+#   Rscript script/5_Annotation/2_Annotate_EWAS.R "sepages_2tp_(t2|t3|avg)_20261021"
 #
 # [INPUT]:  results/3_Clean_Results/files_cleaned_index.csv (from 3_Get_Cleaned_Files.R)
 #           results/5_Annotation/cpg_annotation_all.rds (one row per CpG)
@@ -47,6 +47,13 @@ files_in <- files_index$path
 files_in[!file.exists(files_in)]   # should be character(0)
 stopifnot(all(file.exists(files_in)))
 
+# Skip files already annotated (set overwrite_annot <- TRUE to redo all)
+overwrite_annot <- FALSE
+files_out  <- sub("\\.rds$", "_annotated.rds", sub(clean_folder, output_folder, files_in, fixed = TRUE))
+files_todo <- files_in[overwrite_annot | !file.exists(files_out)]
+cat("Already annotated:", sum(file.exists(files_out)), "| To annotate:", length(files_todo), "\n")
+table(files_index$analysis[files_in %in% files_todo])   # should be only s6
+
 #==============================================================================#----
 # LOAD ANNOTATION                                                              #----
 #==============================================================================#----
@@ -69,8 +76,7 @@ if (length(clash) > 0) stop("Annotation columns clash with EWAS results: ",
 #   3_Clean_Results/sepages_2tp_t2_old/s1/24d_t2.rds
 #   -> 5_Annotation/sepages_2tp_t2_old/s1/24d_t2_annotated.rds
 
-for (f in files_in) {
-  
+for (f in files_todo) {  
   cat("Annotating:", f, "\n")
   ewas_results <- readRDS(f)
   
@@ -81,8 +87,6 @@ for (f in files_in) {
   cat("  CpGs without annotation:", sum(!ewas_results$CpG %in% cpg_annot$CpG), "\n")
   rownames(ewas_annot) <- ewas_annot$CpG
   
-  file_out <- sub(clean_folder, output_folder, f, fixed = TRUE)
-  file_out <- sub("\\.rds$", "_annotated.rds", file_out)
   dir.create(dirname(file_out), recursive = TRUE, showWarnings = FALSE)
   saveRDS(ewas_annot, file_out)
 }
