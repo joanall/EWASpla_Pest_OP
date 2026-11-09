@@ -8,18 +8,22 @@
 # [DESCRIPTION]: OBJECTIVE 1 - Association between prenatal pesticide exposure
 # and placental DNA methylation. Summary tables of suggestive CpGs (p < 1e-5)
 # from the main models, with their look-up in the sensitivity analyses.
-# - Table 1-2: suggestive CpGs at t2 / t3 + effect and p in s1-s5 (look-up),
+# - Table 1-2: suggestive CpGs at t2 / t3 + effect and p in s1-s6 (look-up),
 #              to check whether each association remains after the
 #              sensitivity analyses
+# - Table 7:   same for the pregnancy-average model (only if the avg run is
+#              included in the pattern; tables 3-6 are taken by 3b / 3c)
 # Consistency across time points and exposures (Objective 2) is in
 #   3b_Get_Consistency_Summary.R, which reads Tables 1-2 produced here.
 # Argument: pattern for the runs (one cohort, sample and run date), e.g.
 #   Rscript script/6_Analyze_Results/3a_Get_Suggestive_Summary.R "sepages_2tp_t[23]_20261021"
+#   Rscript script/6_Analyze_DMPs/3a_Get_Suggestive_Summary.R "bisc_tp_(t2|t3|avg)_20261022"
 #
 # [INPUT]:  results/5_Annotation/files_annotated_index.csv
 #           -> results/5_Annotation/<run>/<analysis>/<exposure>_<tp>_annotated.rds
 # [OUTPUT]: results/6_Analyze_Results/summary_tables/<cohort>_<sample>_<date>/
-#           table1_suggestive_t2.xlsx/.rds, table2_suggestive_t3.xlsx/.rds
+#           table1_suggestive_t2.xlsx/.rds, table2_suggestive_t3.xlsx/.rds,
+#           table7_suggestive_avg.xlsx/.rds
 #==============================================================================#
 
 #==============================================================================#----
@@ -28,7 +32,7 @@
 source("script/00_functions.R")
 library(writexl)   # .xlsx output: no separator/decimal issues when opening in Excel
 
-index_file   <- "results/5_Annotation/files_annotated_index.csv"
+index_file   <- "results/bisc/5_Annotation/files_annotated_index.csv"
 cutoff_sugg  <- 1e-5    # suggestive threshold
 cutoff_nom   <- 0.05    # nominal threshold for look-up replication
 
@@ -50,7 +54,7 @@ main_index <- files_index[files_index$analysis == "main", ]
 sens_index <- files_index[files_index$analysis != "main", ]
 
 tag    <- paste(main_index$cohort[1], main_index$sample[1], main_index$run_date[1], sep = "_")
-outdir <- file.path("results/6_Analyze_Results/summary_tables", tag)
+outdir <- file.path("results/bisc/6_Analyze_Results/summary_tables", tag)
 dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
 
 exposures <- unique(main_index$exposure)
@@ -105,13 +109,18 @@ top_main$n_sens_same_dir <- rowSums(sign(eff_sens) == sign(top_main$Effect), na.
 top_main$n_sens_p005     <- rowSums(p_sens < cutoff_nom & sign(eff_sens) == sign(top_main$Effect), na.rm = TRUE)
 
 #==============================================================================#----
-# TABLES 1-2: SUGGESTIVE CpGs PER TIME POINT                                   #----
+# TABLES 1-2 AND 7: SUGGESTIVE CpGs PER TIME POINT                             #----
 #==============================================================================#----
 
-for (tp in c("t2", "t3")) {
+# Table number per time point (3-6 are used by 3b / 3c)
+table_number <- c(t2 = 1, t3 = 2, avg = 7)
+tps_run <- intersect(names(table_number), unique(main_index$time_point))
+tps_run   # time points in the selected runs
+
+for (tp in tps_run) {
   tab <- top_main[top_main$time_point == tp, ]
   tab <- tab[order(tab$exposure, tab$pvalue), ]
-  n_tab <- ifelse(tp == "t2", 1, 2)
+  n_tab <- table_number[[tp]]
   file_base <- file.path(outdir, paste0("table", n_tab, "_suggestive_", tp))
   write_xlsx(tab, paste0(file_base, ".xlsx"))
   saveRDS(tab, paste0(file_base, ".rds"))
