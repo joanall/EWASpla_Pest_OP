@@ -465,6 +465,55 @@ n_subsets <- data.frame(
 )
 n_subsets
 
+# ---- Contribution of T2 / T3 participants to the pregnancy-average sample ----
+id_var <- "mo_id"   # <-- change to your ID column name
+
+count_contrib <- function(df_avg, df_t2, df_t3, id_var) {
+  ids_avg <- df_avg[[id_var]]
+  ids_t2  <- df_t2[[id_var]]
+  ids_t3  <- df_t3[[id_var]]
+  
+  # Check: duplicated IDs
+  if (any(duplicated(ids_avg))) warning("Duplicated IDs in avg dataset")
+  
+  in_t2 <- ids_avg %in% ids_t2
+  in_t3 <- ids_avg %in% ids_t3
+  
+  n_avg     <- length(ids_avg)
+  n_both    <- sum(in_t2 & in_t3)
+  n_t2_only <- sum(in_t2 & !in_t3)
+  n_t3_only <- sum(!in_t2 & in_t3)
+  n_neither <- sum(!in_t2 & !in_t3)
+  
+  c(n_avg       = n_avg,
+    n_both      = n_both,
+    n_t2_only   = n_t2_only,
+    n_t3_only   = n_t3_only,
+    n_neither   = n_neither,
+    pct_any_t3  = round(100 * (n_both + n_t3_only) / n_avg, 1),
+    pct_any_t2  = round(100 * (n_both + n_t2_only) / n_avg, 1),
+    pct_t3_only = round(100 * n_t3_only / n_avg, 1),
+    pct_t2_only = round(100 * n_t2_only / n_avg, 1))
+}
+
+contrib_main <- count_contrib(df_main_avg, df_main_t2, df_main_t3, id_var)
+contrib_s1   <- count_contrib(df_s1_avg,   df_s1_t2,   df_s1_t3,   id_var)
+contrib_s2   <- count_contrib(df_s2_avg,   df_s2_t2,   df_s2_t3,   id_var)
+contrib_s3   <- count_contrib(df_s3_avg,   df_s3_t2,   df_s3_t3,   id_var)
+contrib_s4   <- count_contrib(df_s4_avg,   df_s4_t2,   df_s4_t3,   id_var)
+contrib_s5   <- count_contrib(df_s5_avg,   df_s5_t2,   df_s5_t3,   id_var)
+
+contrib_avg <- data.frame(
+  subset = c("main", "s1_no_compl", "s2_european", "s3_sg", "s4_fruitveg", "s5_no_ga_ct"),
+  rbind(contrib_main, contrib_s1, contrib_s2, contrib_s3, contrib_s4, contrib_s5),
+  row.names = NULL
+)
+contrib_avg
+
+# Check: groups add up to n_avg
+contrib_avg$n_both + contrib_avg$n_t2_only + contrib_avg$n_t3_only + contrib_avg$n_neither == contrib_avg$n_avg
+
+stop();
 # Save recorded 
 saveRDS(df, paste0(outdir, "df_all_recoded.rds"))
 
