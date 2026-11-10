@@ -14,7 +14,9 @@
 # all women vs excluding outliers, plus Table 1 with both slopes.
 #
 # Plot 1: x = raw concentration (linear scale)
-# Plot 2: x = raw concentration on a log2 axis (closer to what the model saw)
+# Plot 2: x = raw concentration on a log2 axis (tick labels still in ng/mL)
+# Plot 3: x = exposure as used in the EWAS (LOD-imputed, log2-transformed:
+#         pest_<exp>_ilog2_<tp>), linear axis; outliers still defined on raw
 # Each plot: multi-page PDF (panels_per_page CpGs per page) + one PNG per CpG
 # Table 1 (only if add_fit_lines): per CpG, crude slope with / without outliers
 #
@@ -25,14 +27,15 @@
 #   4) run date:   YYYYMMDD of the EWAS run
 #   5) exposure:   24d excluded (binary); 3pba / tcpy / dmp / dep (default tcpy)
 # Example:
-#   Rscript script/6_Analyze_DMPs/6_Get_Scatter_Raw_Exposure.R bisc avg tp 20261022 tcpy
+#   Rscript script/6_Analyze_DMPs/6_Get_Scatter_Raw_Exposure.R bisc t3 tp 20261022 tcpy
 #
 # [INPUT]:  results/5_Annotation/files_annotated_index.csv
 #           -> results/5_Annotation/<run>/main/<exposure>_<tp>_annotated.rds
 #           subsets (same as Run_EWAS.R) and preprocessed betas
 # [OUTPUT]: results/6_Analyze_Results/scatter_raw/<run>/
-#           scatter_raw_<exposure>_<tp>.pdf, scatter_log2_<exposure>_<tp>.pdf
-#           solo/scatter_raw_<exposure>_<tp>_<CpG>.png (and _log2_)
+#           scatter_raw_<exposure>_<tp>.pdf, scatter_log2_<exposure>_<tp>.pdf,
+#           scatter_ilog2_<exposure>_<tp>.pdf
+#           solo/scatter_raw_<exposure>_<tp>_<CpG>.png (and _log2_, _ilog2_)
 #           slopes_outliers_<exposure>_<tp>.csv / .png (only if add_fit_lines)
 #==============================================================================#
 
@@ -134,6 +137,17 @@ if (time_point == "avg") {
 summary(metadata$exp_raw)    # all >= 0
 sum(is.na(metadata$exp_raw)) # women without raw value (dropped from the plot)
 
+# Exposure as used in the EWAS (Run_EWAS.R): LOD-imputed and log2-transformed
+model_var <- if (exp_code %in% c("3pba", "tcpy")) paste0("pest_", exp_code, "_ilog2_", time_point) else
+  paste0("pest_", exp_code, "_ms_ilog2_", time_point)
+model_var
+stopifnot(model_var %in% colnames(metadata))
+metadata$exp_ilog2 <- as.numeric(metadata[[model_var]])
+summary(metadata$exp_ilog2)
+# Check: imputed log2 vs log2(raw) where raw > 0 (should be close to 1)
+cor(metadata$exp_ilog2, log2(metadata$exp_raw), use = "complete.obs")
+sum(!is.na(metadata$exp_ilog2) & is.na(metadata$exp_raw))   # in the model but no raw value (not plotted)
+
 # Betas: load once, keep only the top CpGs
 if (grepl("\\.rds$", betas_path, ignore.case = TRUE)) {
   meth_all <- readRDS(betas_path)
@@ -177,6 +191,7 @@ for (i in seq_len(nrow(top_cpgs))) {
     CpG     = cpg,
     label   = cpg_label[i],
     exp_raw = metadata$exp_raw,
+    exp_ilog2 = metadata$exp_ilog2,
     beta    = as.numeric(meth_top[cpg, ]),
     outlier = metadata$outlier))
 }
@@ -223,33 +238,44 @@ if (add_fit_lines) {
 # PLOTS                                                                        #----
 #==============================================================================#----
 
-# Plot 2 (log2 axis) uses values > 0 only
-df_long_pos <- df_long[df_long$exp_raw > 0, ]
-nrow(df_long) - nrow(df_long_pos)   # rows with raw value = 0, dropped in Plot 2
+# Plot 2 (log2 axis) uses values > 0 only; Plot 3 uses women with the model variable
+df_long_pos   <- df_long[df_long$exp_raw > 0, ]
+df_long_ilog2 <- df_long[!is.na(df_long$exp_ilog2), ]
+nrow(df_long) - nrow(df_long_pos)     # rows with raw value = 0, dropped in Plot 2
+nrow(df_long) - nrow(df_long_ilog2)   # rows without the model variable, dropped in Plot 3
 
 subtitle_txt <- paste0(run_name, ", main model | N = ", nrow(metadata),
                        "\nOutliers (red): < ", signif(outlier_limits[1], 3),
-                       " or > ", signif(outlier_limits[2], 3), " ", exp_unit)
+                       " or > ", signif(outlier_limits[2], 3), " ", exp_unit, " (raw scale)")
 if (add_fit_lines) subtitle_txt <- paste0(subtitle_txt,
                                           "\nLines: crude lm, all women (solid) vs without outliers (dashed)")
 
+# The three x scales: data, file tag, title and x-axis label
+scale_modes <- c("raw", "log2", "ilog2")
+scale_data  <- list(raw = df_long, log2 = df_long_pos, ilog2 = df_long_ilog2)
+scale_title <- c(raw   = " (raw)",
+                 log2  = " (raw, log2 axis)",
+                 ilog2 = " (imputed, log2-transformed, as in the EWAS)")
+scale_xlab  <- c(raw   = paste0(exp_label, " ", time_point, " (", exp_unit, ")"),
+                 log2  = paste0(exp_label, " ", time_point, " (", exp_unit, ", log2 axis)"),
+                 ilog2 = paste0("log2 ", exp_label, " ", time_point, " (", model_var, ")"))
+
 # Scatter of exposure (x) vs DNAm beta (y), one panel per CpG in df_plot;
-# red = exposure outliers; log2_axis = TRUE puts x on a log2 axis.
-make_scatter <- function(df_plot, log2_axis = FALSE, n_col = 3, n_row = NULL) {
-  x_lab <- paste0(exp_label, " ", time_point, " (", exp_unit,
-                  if (log2_axis) ", log2 axis" else "", ")")
+# red = exposure outliers (raw scale). scale_mode: "raw" = raw values,
+# "log2" = raw values on a log2 axis, "ilog2" = model variable on a linear axis.
+make_scatter <- function(df_plot, scale_mode = "raw", n_col = 3, n_row = NULL) {
+  if (scale_mode == "ilog2") df_plot$exp_raw <- df_plot$exp_ilog2   # x = model variable
   p <- ggplot(df_plot, aes(x = exp_raw, y = beta)) +
     geom_point(aes(colour = outlier), size = 1.1, alpha = 0.6) +
     scale_colour_manual(values = c("Rest" = "grey55",
                                    "Outlier (<P1 or >P99)" = pal_bright[["red"]]),
                         drop = FALSE) +
     facet_wrap(~ label, scales = "free", ncol = n_col, nrow = n_row, drop = FALSE) +
-    labs(title = paste0(exp_label, if (log2_axis) " (raw, log2 axis)" else " (raw)",
-                        " vs placental DNAm"),
-         subtitle = subtitle_txt, x = x_lab, y = "DNAm (beta value)", colour = NULL) +
+    labs(title = paste0(exp_label, scale_title[[scale_mode]], " vs placental DNAm"),
+         subtitle = subtitle_txt, x = scale_xlab[[scale_mode]], y = "DNAm (beta value)", colour = NULL) +
     theme_ewas() +
     theme(legend.position = "bottom", axis.text.x = element_text(angle = 0, hjust = 0.5))
-  if (log2_axis) p <- p + scale_x_continuous(trans = "log2")
+  if (scale_mode == "log2") p <- p + scale_x_continuous(trans = "log2")
   if (add_fit_lines) {
     df_no_out <- df_plot[df_plot$outlier == "Rest", ]
     p <- p +
@@ -266,11 +292,10 @@ page_id <- ceiling(seq_along(cpg_label) / panels_per_page)
 n_pages <- max(page_id)
 n_pages
 
-# Plot 1 and Plot 2. Multi-page PDF, panels_per_page CpGs per page (2 x 3).
-for (log2_axis in c(FALSE, TRUE)) {
-  df_scale  <- if (log2_axis) df_long_pos else df_long
-  scale_tag <- if (log2_axis) "log2" else "raw"
-  pdf_file  <- file.path(outdir, paste0("scatter_", scale_tag, "_", exp_code, "_", time_point, ".pdf"))
+# Plots 1-3. Multi-page PDF per scale, panels_per_page CpGs per page (2 x 3).
+for (scale_mode in scale_modes) {
+  df_scale <- scale_data[[scale_mode]]
+  pdf_file <- file.path(outdir, paste0("scatter_", scale_mode, "_", exp_code, "_", time_point, ".pdf"))
   
   pdf(pdf_file, width = 26 / 2.54, height = 20 / 2.54)   # cm -> inches
   for (pg in seq_len(n_pages)) {
@@ -281,7 +306,7 @@ for (log2_axis in c(FALSE, TRUE)) {
     pad_levels <- if (n_empty > 0) strrep(" ", seq_len(n_empty)) else character(0)
     df_page$label <- factor(df_page$label, levels = c(labels_page, pad_levels))
     # Fixed 2 x 3 grid: same panel size on the last (incomplete) page
-    p_page <- make_scatter(df_page, log2_axis = log2_axis, n_col = 3, n_row = 2) +
+    p_page <- make_scatter(df_page, scale_mode = scale_mode, n_col = 3, n_row = 2) +
       labs(caption = paste0("Page ", pg, " of ", n_pages, " | CpGs ordered by EWAS p-value"))
     print(p_page)
   }
@@ -295,18 +320,17 @@ dir.create(solo_dir, recursive = TRUE, showWarnings = FALSE)
 
 for (i in seq_along(cpg_label)) {
   cpg <- top_cpgs$CpG[i]
-  for (log2_axis in c(FALSE, TRUE)) {
-    df_scale  <- if (log2_axis) df_long_pos else df_long
-    scale_tag <- if (log2_axis) "log2" else "raw"
+  for (scale_mode in scale_modes) {
+    df_scale <- scale_data[[scale_mode]]
     df_cpg <- df_scale[df_scale$CpG == cpg, ]
     df_cpg$label <- droplevels(df_cpg$label)   # one panel only
-    p_solo <- make_scatter(df_cpg, log2_axis = log2_axis, n_col = 1)
-    save_plot(p_solo, file.path(solo_dir, paste0("scatter_", scale_tag, "_", exp_code, "_",
+    p_solo <- make_scatter(df_cpg, scale_mode = scale_mode, n_col = 1)
+    save_plot(p_solo, file.path(solo_dir, paste0("scatter_", scale_mode, "_", exp_code, "_",
                                                  time_point, "_", sprintf("%02d", i), "_", cpg, ".png")),
               width = 14, height = 13)
   }
 }
-length(list.files(solo_dir, pattern = paste0("_", exp_code, "_", time_point, "_")))  # 2 x N CpGs
+length(list.files(solo_dir, pattern = paste0("_", exp_code, "_", time_point, "_")))  # 3 x N CpGs
 
 cat("Saved in:", outdir, "\n")
 
