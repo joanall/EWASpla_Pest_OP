@@ -38,9 +38,13 @@
 #   4) sample:     2tp (women with both time points; default)
 #                  tp  (all women with this time point; BiSC only)
 #   5) run date:   YYYYMMDD (optional; default today)
+#   6) cut-offs:   cohort (cohort-specific quantiles; default)
+#                  shared (pooled BiSC + SEPAGES cut-offs, from
+#                          results/2_Gcomp_Results/quantile_cutoffs/shared_bisc_sepages_q<q>.rds)
 #
 # Example:
-#   Rscript script/2_Run_EWAS/Run_Gcomp.R sepages main t3 2tp 20261109
+#   Rscript script/8_Mixtures/Run_Gcomp.R sepages main t3 2tp 20261109
+#   Rscript script/8_Mixtures/Run_Gcomp.R bisc main t2 tp 20261110 shared
 #
 # [INPUT]:  subsets (see COHORT SETTINGS) and preprocessed betas
 #           (rows = CpGs, columns = Basename)
@@ -61,6 +65,8 @@ library(foreach)
 library(doParallel)
 
 n_cores <- as.numeric(Sys.getenv("SLURM_CPUS_PER_TASK", unset = 8))
+# One BLAS/OpenMP thread per worker (avoids nested parallelism; workers inherit this)
+Sys.setenv(OPENBLAS_NUM_THREADS = "1", OMP_NUM_THREADS = "1", MKL_NUM_THREADS = "1")
 
 # Arguments from the terminal (defaults for interactive use)
 args <- commandArgs(trailingOnly = TRUE)
@@ -69,6 +75,8 @@ analysis_arg <- if (length(args) >= 2) args[2] else "main"
 time_point   <- if (length(args) >= 3) args[3] else "t2"
 sample_set   <- if (length(args) >= 4) args[4] else "2tp"
 run_date     <- if (length(args) >= 5) args[5] else format(Sys.Date(), "%Y%m%d")
+cutoff_type  <- if (length(args) >= 6) args[6] else "cohort"   # cohort / shared
+stopifnot(cutoff_type %in% c("cohort", "shared"))
 
 stopifnot(cohort %in% c("sepages", "bisc"))
 stopifnot(time_point %in% c("t2", "t3", "avg"))
@@ -115,7 +123,7 @@ stopifnot(all(file.exists(subset_path)))
 # (which expect the 6 single exposures) do not pick these files up
 
 results_folder <- file.path("results/2_Gcomp_Results",
-                            paste(cohort, sample_set, time_point, run_date, sep = "_"))
+                            paste(cohort, sample_set, time_point, run_date, cutoff_type, sep = "_"))
 dir.create(results_folder, recursive = TRUE, showWarnings = FALSE)
 
 log_folder <- file.path(results_folder, "logs")
@@ -127,7 +135,8 @@ sink(log_con, split = TRUE)              # printed output: console + log
 sink(log_con, type = "message")          # warnings and errors: log only
 cat("Start:", format(Sys.time()), "\n")
 cat("Cohort:", cohort, "| Sample:", sample_set, "| Time point:", time_point,
-    "| Analyses:", paste(which_analyses, collapse = ", "), "\n")
+    "| Analyses:", paste(which_analyses, collapse = ", "),
+    "| Cut-offs:", cutoff_type, "| Cores:", n_cores, "\n")
 
 #==============================================================================#----
 # PARAMETERS                                                                   #----
@@ -263,12 +272,29 @@ for (a in which_analyses) {
   stopifnot(identical(colnames(meth_data), metadata$Basename))
   cat("Samples in the analysis (complete cases):", ncol(meth_data), "\n")
   
-  # 3. Quantize the mixture components once (on this analytic sample)
-  mix_q <- qgcomp::quantize(metadata, expnms = mix_exposures, q = q_mix)
-  metadata_model <- mix_q$data
+  # 3. Quantize the mixture components once
+  if (cutoff_type == "cohort") {
+    # Cohort-specific quantiles, on this analytic sample
+    mix_q <- qgcomp::quantize(metadata, expnms = mix_exposures, q = q_mix)
+    metadata_model <- mix_q$data
+    cat("Quantile cut points (cohort-specific):\n"); print(mix_q$breaks)
+  } else {
+    # Shared BiSC + SEPAGES cut-offs (pooled main analytic samples)
+    shared_path <- paste0("results/2_Gcomp_Results/quantile_cutoffs/shared_bisc_sepages_q", q_mix, ".rds")
+    stopifnot(file.exists(shared_path))
+    shared_cutoffs <- readRDS(shared_path)[[time_point]]
+    stopifnot(all(mix_exposures %in% names(shared_cutoffs)))
+    metadata_model <- metadata
+    for (e in mix_exposures) {
+      stopifnot(length(shared_cutoffs[[e]]) == q_mix - 1)
+      # Same convention as qgcomp::quantize: categories 0, 1, ..., q-1
+      metadata_model[[e]] <- cut(metadata[[e]], breaks = c(-Inf, shared_cutoffs[[e]], Inf),
+                                 labels = FALSE, include.lowest = TRUE) - 1
+    }
+    cat("Quantile cut points (shared):\n"); print(shared_cutoffs[mix_exposures])
+  }
   
-  # Check: cut points and number of women per quantile for each compound
-  cat("Quantile cut points:\n"); print(mix_q$breaks)
+  # Check: number of women per quantile for each compound
   for (e in mix_exposures) {
     cat(" ", mix_labels[e], ":"); print(table(metadata_model[[e]], useNA = "ifany"))
   }
