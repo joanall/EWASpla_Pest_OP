@@ -2,14 +2,17 @@
 # Check cohort contributions and large SEPAGES CIs in the meta-analysis
 # All exposures x all time points (T2, T3, pregnancy average) - main analysis
 #
+#
 # Aim: the forest plots (BiSC, SEPAGES, meta) show much wider CIs in SEPAGES
 #      at some CpGs. This script
 #        (1) quantifies each cohort's contribution to the pooled fixed-effects
 #            estimate (inverse-variance weights), and
 #        (2) flags top hits where the SEPAGES SE is unusually inflated
 #            relative to the typical SEPAGES/BiSC SE ratio.
-#      Flagged CpGs are saved to txt, to be checked on the PC holding the
-#      SEPAGES methylation data (section 4: CpG-specific diagnostics).
+#      All top hits (with a flag for large SEPAGES CIs) are saved to txt, to be
+#      checked on the PC holding the SEPAGES methylation data (section 4:
+#      CpG-specific diagnostics; plots only for flagged CpGs).
+
 ################################################################################
 
 ## ---- 0. Settings ----
@@ -68,40 +71,42 @@ check_ci <- function(exp_i, tp_i) {
     warning(exp_i, " ", tp_i, ": pooled SE differs from FE SE (max diff ", se_diff_max, ")")
   
   # 3. Top hits and flagged CpGs
-  meta_top  <- meta_full[meta_full$pvalue < p_top, ]
-  meta_flag <- meta_top[meta_top$se_ratio_rel > se_ratio_cut, ]
+  meta_top <- meta_full[meta_full$pvalue < p_top, ]
+  meta_top$flag_large_ci <- meta_top$se_ratio_rel > se_ratio_cut
   
   cat(exp_i, tp_i, "| top hits:", nrow(meta_top),
-      "| flagged:", nrow(meta_flag),
+      "| flagged:", sum(meta_top$flag_large_ci),
       "| median SE ratio:", round(median(meta_full$se_ratio), 2), "\n")
   
-  if (nrow(meta_flag) == 0) return(NULL)
+  if (nrow(meta_top) == 0) return(NULL)
   data.frame(exposure = exp_i, tp = tp_i,
-             meta_flag[, c("CpG", "pvalue", "Effect", "SE",
-                           "Effect_bisc", "SE_bisc", "Effect_sepages", "SE_sepages",
-                           "pct_w_sepages", "se_ratio", "se_ratio_rel", "i2")])
+             meta_top[, c("CpG", "pvalue", "Effect", "SE",
+                          "Effect_bisc", "SE_bisc", "Effect_sepages", "SE_sepages",
+                          "pct_w_sepages", "se_ratio", "se_ratio_rel", "i2", "flag_large_ci")])
 }
 
 ## ---- Run for all exposures x time points ----
-flag_list <- list()
+tophits_list <- list()
 for (tp_i in tps) {
   for (exp_i in exposures) {
-    flag_list[[paste(exp_i, tp_i, sep = "_")]] <- check_ci(exp_i, tp_i)
+    tophits_list[[paste(exp_i, tp_i, sep = "_")]] <- check_ci(exp_i, tp_i)
   }
 }
 
-flagged_all <- do.call(rbind, flag_list)
-rownames(flagged_all) <- NULL
-
-# Check: counts per exposure x time point
-table(flagged_all$exposure, flagged_all$tp)
+tophits_all <- do.call(rbind, tophits_list)
+rownames(tophits_all) <- NULL
+# Check: top hits and flagged CpGs per exposure x time point
+table(tophits_all$exposure, tophits_all$tp)
+table(tophits_all$exposure[tophits_all$flag_large_ci], tophits_all$tp[tophits_all$flag_large_ci])
 
 ## ---- Save ----
-write.table(flagged_all,
-            paste0(dir_out, "flagged_cpgs_large_ci_detail.txt"),
+write.table(tophits_all,
+            paste0(dir_out, "tophits_ci_detail.txt"),
             sep = "\t", quote = FALSE, row.names = FALSE)
 
-cpg_flagged_unique <- unique(flagged_all$CpG)
-length(cpg_flagged_unique)
-writeLines(cpg_flagged_unique,
-           paste0(dir_out, "flagged_cpgs_large_ci_unique.txt"))
+cpg_tophits_unique <- unique(tophits_all$CpG)
+length(cpg_tophits_unique)
+writeLines(cpg_tophits_unique, paste0(dir_out, "tophits_ci_unique.txt"))
+
+
+
