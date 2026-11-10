@@ -2,14 +2,14 @@
 # Section 4 - CpG-specific diagnostics for large SEPAGES CIs
 # Run on the PC holding the SEPAGES methylation data
 #
-# Input : flagged_cpgs_large_ci_detail.txt (from sections 1-3)
-# Aim   : for each flagged exposure x time point x CpG, refit the EWAS model
+# Input : tophits_ci_detail.txt (from sections 1-3)
+# Aim   : for each top-hit exposure x time point x CpG, refit the EWAS model
 #         in SEPAGES and identify why the SE is large:
 #           - fewer samples (probe filtering)
 #           - low / high methylation variability (vs all CpGs)
 #           - outliers or many down-weighted samples in the robust regression
 #           - non-convergence
-# Output: table of diagnostics + PDF with per-CpG plots
+# Output: table of diagnostics (all top hits) + PNG/PDF plots 
 ################################################################################
 
 library(MASS)
@@ -18,8 +18,11 @@ library(MASS)
 dir_out <- "results/sepages/4_Check_CI/"
 dir.create(dir_out, recursive = TRUE, showWarnings = FALSE)
 
-flagged_all <- read.table("results/flagged_cpgs_large_ci_detail.txt",
+flagged_all <- read.table("results/tophits_ci_detail.txt",
                           header = TRUE, sep = "\t", stringsAsFactors = FALSE)
+
+# Check: top hits and flagged rows
+nrow(flagged_all); sum(flagged_all$flag_large_ci)
 cpg_large_ci <- unique(flagged_all$CpG)
 
 # Methylation: CpG x sample, same scale as EWAS (e.g. M-values)  <-- adjust
@@ -52,7 +55,8 @@ covars <- c(main_cov, cell_types)
 setdiff(c(exp_vars, covars), colnames(pheno_sepages))
 
 ## ---- 4.1 Genome-wide reference: methylation SD across all CpGs ----
-sd_meth_all <- apply(meth_sepages, 1, sd, na.rm = TRUE)
+meth_sub    <- meth_sepages[, pheno_sepages$Basename]   # samples used in the EWAS
+sd_meth_all <- apply(meth_sub, 1, sd, na.rm = TRUE)
 summary(sd_meth_all)
 
 ## ---- 4.2 Function: refit one CpG for one exposure x time point ----
@@ -96,9 +100,12 @@ diag_cpg <- function(cpg, exp_var, covars, meth, pheno, sd_meth_all) {
   )
 }
 
-## ---- 4.3 Run for all flagged rows + plots ----
-dir_plots <- paste0(dir_out, "plots/")
-dir.create(dir_plots, recursive = TRUE, showWarnings = FALSE)
+## ---- 4.3 Run for all top hits + plots ----
+dir_plots_flag   <- paste0(dir_out, "plots/flagged/")
+dir_plots_noflag <- paste0(dir_out, "plots/not_flagged/")
+dir.create(dir_plots_flag,   recursive = TRUE, showWarnings = FALSE)
+dir.create(dir_plots_noflag, recursive = TRUE, showWarnings = FALSE)
+
 
 # Plot function: methylation distribution + methylation vs exposure (red = weight < 0.5)
 plot_diag <- function(plot_data) {
@@ -110,7 +117,8 @@ plot_diag <- function(plot_data) {
        col = ifelse(plot_data$w < 0.5, "red", "grey40"),
        xlab = plot_data$exp_var, ylab = plot_data$cpg,
        main = paste0("n low weight = ", sum(plot_data$w < 0.5),
-                     " | SE ratio rel = ", round(plot_data$se_ratio_rel, 2)))
+                     " | SE ratio rel = ", round(plot_data$se_ratio_rel, 2),
+                     ifelse(plot_data$flag, " | FLAGGED", "")))
 }
 
 diag_list      <- list()
@@ -130,53 +138,78 @@ for (i in seq_len(nrow(flagged_all))) {
   res_i <- diag_cpg(cpg_i, exp_var, covars, meth_sepages, pheno_sepages, sd_meth_all)
   diag_list[[name_i]] <- data.frame(flagged_all[i, c("exposure", "tp", "CpG", "pvalue",
                                                      "SE_bisc", "SE_sepages", "se_ratio_rel",
-                                                     "pct_w_sepages")],
+                                                     "pct_w_sepages", "flag_large_ci")],
                                     t(res_i$stats), row.names = NULL)
   
   # Plot data (robust object to replot later)
   plot_data_i <- list(cpg = cpg_i, key = key_i, exp_var = unname(exp_var),
                       meth = res_i$df$meth, exposure = res_i$df[[exp_var]],
                       w = res_i$w, se_ratio_rel = flagged_all$se_ratio_rel[i],
+                      flag = flagged_all$flag_large_ci[i],
                       sample_id = res_i$df$Basename)
   plot_data_list[[name_i]] <- plot_data_i
   
   # PNG + recorded plot
-  png(paste0(dir_plots, name_i, ".png"), width = 10, height = 4.5, units = "in", res = 300)
+  dir_png_i <- ifelse(flagged_all$flag_large_ci[i], dir_plots_flag, dir_plots_noflag)
+  png(paste0(dir_png_i, name_i, ".png"), width = 10, height = 4.5, units = "in", res = 300)
   dev.control(displaylist = "enable")
   plot_diag(plot_data_i)
-  plot_rec_list[[name_i]] <- recordPlot()
+  if (flagged_all$flag_large_ci[i]) plot_rec_list[[name_i]] <- recordPlot()
   dev.off()
 }
 
-# Check: one PNG per flagged row
-length(list.files(dir_plots, pattern = "\\.png$")); nrow(flagged_all)
+# Check: one PNG per top hit
+length(list.files(dir_plots_flag,   pattern = "\\.png$")); sum(flagged_all$flag_large_ci)
+length(list.files(dir_plots_noflag, pattern = "\\.png$")); sum(!flagged_all$flag_large_ci)
 
-# Combined PDF (all plots, one page each)
-pdf(paste0(dir_out, "flagged_cpgs_large_ci_plots.pdf"), width = 10, height = 4.5)
+# Combined PDFs (one page per plot)
+name_flag <- names(plot_data_list)[sapply(plot_data_list, function(x) x$flag)]
+
+pdf(paste0(dir_out, "tophits_ci_plots_flagged.pdf"), width = 10, height = 4.5)
+for (name_i in name_flag) plot_diag(plot_data_list[[name_i]])
+dev.off()
+
+pdf(paste0(dir_out, "tophits_ci_plots_all.pdf"), width = 10, height = 4.5)
 for (name_i in names(plot_data_list)) plot_diag(plot_data_list[[name_i]])
 dev.off()
 
 # Save plot objects
-saveRDS(plot_data_list, paste0(dir_out, "flagged_cpgs_large_ci_plot_data.rds"))
-saveRDS(plot_rec_list,  paste0(dir_out, "flagged_cpgs_large_ci_plot_recorded.rds"))
+saveRDS(plot_data_list, paste0(dir_out, "tophits_ci_plot_data.rds"))
+saveRDS(plot_rec_list,  paste0(dir_out, "tophits_ci_plot_recorded.rds"))
 
 diag_large_ci <- do.call(rbind, diag_list)
-names(diag_large_ci) <- sub("\\..*$", "", names(diag_large_ci))   # drop "beta_refit.<exp_var>" suffix
 
 # Check: refitted SE reproduces EWAS SE (ratio should be ~1)
 summary(diag_large_ci$se_refit / diag_large_ci$SE_sepages)
 
+# Flagged vs non-flagged top hits
+aggregate(cbind(n_used, sd_meth_pctl, s_resid, n_low_w, n_meth_out, n_exp_out) ~ flag_large_ci,
+          data = diag_large_ci, FUN = median)
+table(diag_large_ci$flag_large_ci, diag_large_ci$converged)
+
 ## ---- 4.4 Save ----
-write.table(diag_large_ci, paste0(dir_out, "flagged_cpgs_large_ci_diagnostics.txt"),
+write.table(diag_large_ci, paste0(dir_out, "tophits_ci_diagnostics.txt"),
             sep = "\t", quote = FALSE, row.names = FALSE)
-diag_large_ci
 
+## ---- 4.5 Genome-wide CpG metrics (exposure-independent) ----
+n_nona_all  <- rowSums(!is.na(meth_sub))
+med_all     <- apply(meth_sub, 1, median, na.rm = TRUE)
+mad_all     <- apply(meth_sub, 1, mad, na.rm = TRUE)
+n_out_all   <- rowSums(abs(meth_sub - med_all) > 4 * mad_all, na.rm = TRUE)
 
+cpg_metrics_sepages <- data.frame(
+  CpG          = rownames(meth_sub),
+  n_nona       = n_nona_all,
+  sd_meth      = sd_meth_all[rownames(meth_sub)],
+  sd_meth_pctl = round(100 * rank(sd_meth_all[rownames(meth_sub)]) / nrow(meth_sub), 1),
+  n_meth_out   = n_out_all
+)
+
+saveRDS(cpg_metrics_sepages, paste0(dir_out, "cpg_metrics_sepages_all.rds"))
 # plot_data_list <- readRDS("results/sepages/4_Check_CI/flagged_cpgs_large_ci_plot_data.rds")
 # names(plot_data_list)
-# plot_diag(plot_data_list[["cg12345678_tcpy_avg"]])        # needs plot_diag() defined
+# plot_data_list <- readRDS("results/sepages/4_Check_CI/tophits_ci_plot_data.rds")
 # 
 # # or, same R version only:
-# plot_rec_list <- readRDS("results/sepages/4_Check_CI/flagged_cpgs_large_ci_plot_recorded.rds")
-# replayPlot(plot_rec_list[["cg12345678_tcpy_avg"]])
+# plot_rec_list <- readRDS("results/sepages/4_Check_CI/tophits_ci_plot_recorded.rds")# replayPlot(plot_rec_list[["cg12345678_tcpy_avg"]])
 
