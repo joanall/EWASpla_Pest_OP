@@ -8,8 +8,8 @@
 # [DESCRIPTION]:  Runs GWAMA (inverse-variance fixed effects, quantitative trait) on every
 # filelist (.in) created by 1_Get_Input_GWAMA.R
 
-# [INPUT]: results/meta/1_Input_GWAMA/<meta_id>/gwama_filelist_<exposure>.in
-# [OUTPUT]: results/meta/2_Run_GWAMA/<meta_id>/meta_<meta_id>_<exposure>.out (+ .log)
+# [INPUT]: results/7_Meta/1_Input_GWAMA/<meta_id>/gwama_filelist_<exposure>.in
+# [OUTPUT]: results/7_Meta/2_Run_GWAMA/<meta_id>/meta_<meta_id>_<exposure>.out (+ .log)
 #
 # [HOW TO INSTALL GWAMA] (once, in bash):
 #   conda activate mqtl_env
@@ -29,8 +29,15 @@
 path_to_gwama <- "/home/isglobal.lan/jllaurado/.conda/envs/mqtl_env/bin/GWAMA"
 stopifnot(file.exists(path_to_gwama))     # GWAMA found in the environment
 
-dir_input <- "results/7_Meta/1_Input_GWAMA"
-dir_run   <- "results/7_Meta/2_Run_GWAMA"
+source("script/00_paths.R")
+
+# Argument: meta (single-exposure EWAS, default) or meta_mix (mixture models)
+args       <- commandArgs(trailingOnly = TRUE)
+meta_type  <- if (length(args) >= 1) args[1] else "meta"
+check_cohort(meta_type, c("meta", "meta_mix"))
+
+dir_input <- results_dir(meta_type, "1_Input_GWAMA")
+dir_run   <- results_dir(meta_type, "2_Run_GWAMA")
 
 filelists <- list.files(dir_input, pattern = "\\.in$", recursive = TRUE, full.names = TRUE)
 
@@ -41,7 +48,7 @@ filelists <- filelists[analysis_of_file %in% which_analyses]
 
 # Check: should be t2_main, t3_main, avg_main with 6 exposures each
 print(table(basename(dirname(filelists))))
-#stopifnot(length(filelists) > 0)stopifnot(length(filelists) > 0)
+stopifnot(length(filelists) > 0)
 cat(length(filelists), "GWAMA runs to do\n")
 
 #==============================================================================#----
@@ -83,3 +90,7 @@ if (length(runs_failed) > 0) {
 } else {
   cat("\nAll", length(filelists), "GWAMA runs finished\n")
 }
+
+#==============================================================================#----
+# END OF SCRIPT                                                                #----
+#==============================================================================#----

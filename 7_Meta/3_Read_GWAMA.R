@@ -9,18 +9,36 @@
 # Bonferroni, and saves one .rds per meta-analysis (named list by exposure,
 # same structure as the cohort clean results) plus a summary table.
 
-# INPUT : results/meta/2_Run_GWAMA/<meta_id>/meta_<meta_id>_<exposure>.out
-# OUTPUT: results/meta/3_Read_GWAMA/meta_<meta_id>.rds
-#         results/meta/3_Read_GWAMA/meta_summary.csv
+# [INPUT ]: results/7_Meta/2_Run_GWAMA/<meta_id>/meta_<meta_id>_<exposure>.out
+# [OUTPUT]: results/7_Meta/3_Read_GWAMA/meta_<meta_id>.rds
+#         results/7_Meta/3_Read_GWAMA/meta_summary.xlsx
+
+# NEXT  : the meta results are explored with the same scripts as one cohort,
+#         with cohort = meta (outputs in results/7_Meta/4_QC, 5_Annotation,
+#         6_Analyze_DMPs):
+#         (mixtures: same with meta_mix -> results/8_Mixtures/7_Meta/...)
+#           Rscript script/3_Clean_Results/3_Get_Cleaned_Files.R meta
+#           Rscript script/4_QC/1_Get_QQplot.R meta
+#           Rscript script/5_Annotation/2_Annotate_EWAS.R meta
+#           Rscript script/5_Annotation/3_Get_Annotated_Files.R meta
+#           Rscript script/6_Analyze_DMPs/<script>.R meta "<run pattern>"
+#         These need the per-run structure 3_Read_GWAMA/<run>/<analysis>/<exposure>_<tp>.rds
 #==============================================================================#
 
 #==============================================================================#----
 # SET UP                                                                       #----
 #==============================================================================#----
-dir_input <- "results/7_Meta/1_Input_GWAMA"
-dir_run   <- "results/7_Meta/2_Run_GWAMA"
-dir_read  <- "results/7_Meta/3_Read_GWAMA"
-dir.create(dir_read, recursive = TRUE, showWarnings = FALSE)
+source("script/00_paths.R")
+
+# Argument: meta (single-exposure EWAS, default) or meta_mix (mixture models)
+args       <- commandArgs(trailingOnly = TRUE)
+meta_type  <- if (length(args) >= 1) args[1] else "meta"
+check_cohort(meta_type, c("meta", "meta_mix"))
+source("script/00_template_plot.R")   # save_table()
+
+dir_input <- results_dir(meta_type, "1_Input_GWAMA")
+dir_run   <- results_dir(meta_type, "2_Run_GWAMA")
+dir_read  <- results_dir(meta_type, "3_Read_GWAMA", create = TRUE)
 
 
 files_out <- list.files(dir_run, pattern = "\\.out$", recursive = TRUE, full.names = TRUE)
@@ -102,5 +120,9 @@ for (meta_id in names(meta_list)) {
 
 meta_summary <- do.call(rbind, summary_rows)
 rownames(meta_summary) <- NULL
-write.csv(meta_summary, file.path(dir_read, "meta_summary.csv"), row.names = FALSE)
+save_table(meta_summary, file.path(dir_read, "meta_summary"), png = FALSE)
 print(meta_summary)
+
+#==============================================================================#----
+# END OF SCRIPT                                                                #----
+#==============================================================================#----

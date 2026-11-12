@@ -5,7 +5,6 @@
 # Contact: joana.llaurado@isglobal.org                              
 # Date:  October - November 2026
 #==============================================================================#
-
 # [DESCRIPTION]: Placental pesticide EWAS - BiSC + SEPAGES fixed-effects meta-analysis
 # Builds the GWAMA study files and the GWAMA filelists (.in), one per
 # meta-analysis (time point / sensitivity) x exposure.
@@ -15,7 +14,12 @@
 #         <analysis> = main, s1 ... s6 ; <exposure> = 24d, 3pba, tcpy, dmp, dep, dap
 #         Each .rds = data.frame, rows = CpGs: Effect, SE, tvalue, pvalue, CpG,
 #         pval_bn, pval_fdr
+#         Mixtures (argument meta_mix): results/<cohort>/8_Mixtures/3_Clean_Results/
+#         <run>/<analysis>/mix_<tp>.rds
 # [OUTPUT]: results/7_Meta/1_Input_GWAMA/<meta_id>/   (meta_id = <tp>_<analysis>, e.g. t2_main)
+#           (meta_mix: results/8_Mixtures/7_Meta/1_Input_GWAMA/<meta_id>/)
+#   Rscript script/7_Meta/1_Get_Input_GWAMA.R            # EWAS
+#   Rscript script/7_Meta/1_Get_Input_GWAMA.R meta_mix   # mixture models
 #           bisc_gwamain_<exposure>.txt
 #           sepages_gwamain_<exposure>.txt
 #           gwama_filelist_<exposure>.in
@@ -30,9 +34,20 @@
 #==============================================================================#----
 # SET UP                                                                       #----
 #==============================================================================#----
-dir_bisc    <- "results/bisc/3_Clean_Results"
-dir_sepages <- "results/sepages/3_Clean_Results"
-dir_input   <- "results/7_Meta/1_Input_GWAMA"
+source("script/00_paths.R")
+
+# Argument: meta (single-exposure EWAS, default) or meta_mix (mixture models)
+args       <- commandArgs(trailingOnly = TRUE)
+meta_type  <- if (length(args) >= 1) args[1] else "meta"
+check_cohort(meta_type, c("meta", "meta_mix"))
+
+# EWAS: results/<cohort>/3_Clean_Results; mixtures: results/<cohort>/8_Mixtures/3_Clean_Results
+cohort_bisc    <- if (meta_type == "meta_mix") "bisc_mix"    else "bisc"
+cohort_sepages <- if (meta_type == "meta_mix") "sepages_mix" else "sepages"
+dir_bisc    <- clean_dir(cohort_bisc)
+dir_sepages <- clean_dir(cohort_sepages)   # copied from the SEPAGES PC
+dir_input   <- results_dir(meta_type, "1_Input_GWAMA")
+dir_bisc; dir_sepages; dir_input
 stopifnot(dir.exists(dir_bisc), dir.exists(dir_sepages))
 
 #------------------------------------------------------------------------------#
@@ -51,6 +66,19 @@ design <- data.frame(
   n_sepages   = c(312,                       312,                       312),
   stringsAsFactors = FALSE
 )
+
+# Mixture models (meta_mix): run folders of 8_Mixtures/4_Run_Gcomp and N of the
+# mixture analytic sample (complete cases for the 4 compounds) - FILL IN
+design_mix <- data.frame(
+  meta_id     = c("t2",                                "t3",                                "avg"),
+  bisc_run    = c("bisc_tp_t2_YYYYMMDD_cohort",        "bisc_tp_t3_YYYYMMDD_cohort",        "bisc_tp_avg_YYYYMMDD_cohort"),
+  sepages_run = c("sepages_2tp_t2_YYYYMMDD_cohort",    "sepages_2tp_t3_YYYYMMDD_cohort",    "sepages_2tp_avg_YYYYMMDD_cohort"),
+  n_bisc      = c(NA,                                  NA,                                  NA),
+  n_sepages   = c(NA,                                  NA,                                  NA),
+  stringsAsFactors = FALSE
+)
+if (meta_type == "meta_mix") design <- design_mix
+design
 
 stopifnot(!anyDuplicated(design$meta_id))
 stopifnot(!is.na(design$n_bisc), !is.na(design$n_sepages))   # all N filled in
@@ -167,3 +195,7 @@ for (i in seq_len(nrow(design))) {
 filelists <- list.files(dir_input, pattern = "\\.in$", recursive = TRUE)
 cat("\n", length(filelists), "GWAMA filelists written in", dir_input, "\n")
 print(filelists)
+
+#==============================================================================#----
+# END OF SCRIPT                                                                #----
+#==============================================================================#----
