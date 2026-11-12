@@ -7,41 +7,46 @@
 #==============================================================================#
 # [DESCRIPTION]: Genomic inflation (lambda, 95% CI) and QQ plot for every
 # cleaned EWAS result file. Each QQ plot is saved as .png and as a ggplot
-# object (.rds), so 5_Join_QQ_Plots.R can combine any set of them.
+# object (.rds), so 2_Join_QQplots.R can combine any set of them.
 #
-# Arguments (optional):
-#   1) pattern for the run folders to include (regular expression; default: all)
-#   2) analyses to include, comma-separated (default: all), e.g. "s6"
-#   Rscript script/4_QC/1_Get_QQplot.R "sepages_2tp_t[23]_old"
-#   Rscript script/4_QC/1_Get_QQplot.R "^bisc_tp_(t2|t3|avg)_20261022$" s6
+# Arguments:
+#   1) cohort: bisc / sepages / meta / bisc_mix / sepages_mix / meta_mix
+#   2) pattern for the run folders to include (regular expression; default: all)
+#   3) analyses to include, comma-separated (default: all), e.g. "s6"
+#   Rscript script/4_QC/1_Get_QQplot.R sepages "sepages_2tp_t[23]_old"
+#   Rscript script/4_QC/1_Get_QQplot.R bisc "^bisc_tp_(t2|t3|avg)_20261022$" s6
+#   Rscript script/4_QC/1_Get_QQplot.R meta "meta_tp_(t2|t3|avg)_20261106"
 # qq_index.csv is updated, not overwritten: rows of the files plotted now are
 # replaced, rows of other files are kept.
 #
-# [INPUT]:  results/3_Clean_Results/files_cleaned_index.csv
-#           (from 3_Get_Cleaned_Files.R: path, run, cohort, sample,
-#            time_point, run_date, analysis, exposure)
-# [OUTPUT]: results/4_QQ_Plots/<run>/<analysis>/<exposure>_<tp>_qqplot.png
-#           results/4_QQ_Plots/<run>/<analysis>/<exposure>_<tp>_qqplot.rds
-#           results/4_QQ_Plots/qq_index.csv   (index + lambda + plot paths)
+# [INPUT]:  <clean dir>/files_cleaned_index.csv (from 3_Get_Cleaned_Files.R:
+#           path, run, cohort, sample, time_point, run_date, analysis, exposure)
+#           <clean dir> = results/<cohort>/3_Clean_Results or results/7_Meta/3_Read_GWAMA
+# [OUTPUT]: results/<cohort>/4_QC/<run>/<analysis>/<exposure>_<tp>_qqplot.png
+#           results/<cohort>/4_QC/<run>/<analysis>/<exposure>_<tp>_qqplot.rds
+#           results/<cohort>/4_QC/qq_index.csv   (index + lambda + plot paths)
+#           (meta: results/7_Meta/4_QC/...)
 #==============================================================================#
 
 #==============================================================================#----
 # SET UP                                                                       #----
 #==============================================================================#----
+source("script/00_paths.R")
 source("script/00_template_plot.R")
 source("script/00_functions.R")
 
-index_file <- "results/3_Clean_Results/files_cleaned_index.csv"
-out_dir    <- "results/4_QQ_Plots"
-dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
-
 args <- commandArgs(trailingOnly = TRUE)
-run_pattern <- if (length(args) >= 1 && args[1] != "") args[1] else "."
-analyses    <- if (length(args) >= 2 && args[2] != "") strsplit(args[2], ",")[[1]] else NULL
+cohort      <- if (length(args) >= 1) args[1] else "bisc"
+run_pattern <- if (length(args) >= 2 && args[2] != "") args[2] else "."
+analyses    <- if (length(args) >= 3 && args[3] != "") strsplit(args[3], ",")[[1]] else NULL
+check_cohort(cohort)
+
+index_file <- file.path(clean_dir(cohort), "files_cleaned_index.csv")
+out_dir    <- results_dir(cohort, "4_QC", create = TRUE)
 
 # Exposure labels for titles
-exp_code   <- c("24d",   "3pba",  "tcpy", "dmp",  "dep",  "dap")
-exp_labels <- c("2,4-D", "3-PBA", "TCPy", "ΣDMP", "ΣDEP", "ΣDAP")
+exp_code   <- c("24d",   "3pba",  "tcpy", "dmp",  "dep",  "dap",  "mix")
+exp_labels <- c("2,4-D", "3-PBA", "TCPy", "ΣDMP", "ΣDEP", "ΣDAP", "Mixture")
 
 # Files to plot
 files_index <- read.csv(index_file, stringsAsFactors = FALSE)
@@ -122,6 +127,7 @@ if (file.exists(qq_index_file)) {
 }
 stopifnot(!anyDuplicated(qq_index$path))
 table(qq_index$run, qq_index$analysis)   # check: all runs / analyses in the index
+# Plain csv on purpose: read back by later scripts (not a results table)
 write.csv(qq_index, qq_index_file, row.names = FALSE)
 cat("Index written:", qq_index_file, "\n")
 

@@ -5,31 +5,46 @@
 # Contact: joana.llaurado@isglobal.org                              
 # Date: Stay in Grenoble October - November 2026
 #==============================================================================#
-# [DESCRIPTION]: Combine saved QQ plots (from 4_QQ_Plots.R) into multi-panel
+# [DESCRIPTION]: Combine saved QQ plots (from 1_Get_QQplot.R) into multi-panel
 # figures. Each figure is defined in FIGURES below: which plots go in it, the
 # layout and the output name. Add or edit figures there.
 #
-# [INPUT]:  results/4_QQ_Plots/qq_index.csv
-#           results/4_QQ_Plots/<run>/<analysis>/<exposure>_<tp>_qqplot.rds
-# [OUTPUT]: results/4_QQ_Plots/joined/<figure_name>.png
+# Arguments:
+#   1) cohort:   bisc / sepages / meta / bisc_mix / sepages_mix / meta_mix
+#   2) sample:   2tp / tp (run folder name: <cohort>_<sample>_<tp>_<date>)
+#   3) run date: YYYYMMDD of the run folders
+#   Rscript script/4_QC/2_Join_QQplots.R sepages 2tp 20261021
+#   Rscript script/4_QC/2_Join_QQplots.R bisc tp 20261022
+#   Rscript script/4_QC/2_Join_QQplots.R meta tp 20261106
+#
+# [INPUT]:  results/<cohort>/4_QC/qq_index.csv
+#           results/<cohort>/4_QC/<run>/<analysis>/<exposure>_<tp>_qqplot.rds
+# [OUTPUT]: results/<cohort>/4_QC/joined/<figure_name>.png
+#           (meta: results/7_Meta/4_QC/...)
 #==============================================================================#
 
 #==============================================================================#----
 # SET UP                                                                       #----
 #==============================================================================#----
+source("script/00_paths.R")
 source("script/00_template_plot.R")
 library(patchwork)
 
-qq_index <- read.csv("results/4_QQ_Plots/qq_index.csv", stringsAsFactors = FALSE)
-out_dir  <- "results/4_QQ_Plots/joined"
-dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+args <- commandArgs(trailingOnly = TRUE)
+cohort     <- if (length(args) >= 1) args[1] else "sepages"
+sample_set <- if (length(args) >= 2) args[2] else "2tp"
+run_date   <- if (length(args) >= 3) args[3] else "20261021"
+check_cohort(cohort)
+cohort_label <- cohort_labels[[cohort]]
 
-exp_order <- c("24d", "3pba", "tcpy", "dmp", "dep", "dap")
+qq_index <- read.csv(results_dir(cohort, "4_QC", "qq_index.csv"), stringsAsFactors = FALSE)
+out_dir  <- results_dir(cohort, "4_QC", "joined", create = TRUE)
 
-run_date <- "20261021"
-run_t2   <- paste0("sepages_2tp_t2_", run_date)
-run_t3   <- paste0("sepages_2tp_t3_", run_date)
-run_avg  <- paste0("sepages_2tp_avg_", run_date)
+exp_order <- c("24d", "3pba", "tcpy", "dmp", "dep", "dap", "mix")
+
+run_t2   <- paste(cohort, sample_set, "t2",  run_date, sep = "_")
+run_t3   <- paste(cohort, sample_set, "t3",  run_date, sep = "_")
+run_avg  <- paste(cohort, sample_set, "avg", run_date, sep = "_")
 
 # Time points: run folder and label for titles
 tp_runs   <- c(t2 = run_t2, t3 = run_t3, avg = run_avg)
@@ -53,24 +68,25 @@ table(qq_index$run, qq_index$analysis)
 
 figures <- list(
   
-  # 1. SEPAGES main model, six exposures, t2
-  sepages_main_t2 = list(runs = run_t2, analyses = "main",
-                         exposures = exp_order, ncol = 3,
-                         title = "SEPAGES - main models, second trimester",
-                         width = 24, height = 16),
+  # 1. Main model, six exposures, t2
+  main_t2 = list(runs = run_t2, analyses = "main",
+                 exposures = exp_order, ncol = 3,
+                 title = paste(cohort_label, "- main models, second trimester"),
+                 width = 24, height = 16),
   
-  # 2. SEPAGES main model, six exposures, t3
-  sepages_main_t3 = list(runs = run_t3, analyses = "main",
-                         exposures = exp_order, ncol = 3,
-                         title = "SEPAGES - main models, third trimester",
-                         width = 24, height = 16),
+  # 2. Main model, six exposures, t3
+  main_t3 = list(runs = run_t3, analyses = "main",
+                 exposures = exp_order, ncol = 3,
+                 title = paste(cohort_label, "- main models, third trimester"),
+                 width = 24, height = 16),
   
-  # 3. SEPAGES main model, six exposures, average t2-t3
-  sepages_main_avg = list(runs = run_avg, analyses = "main",
-                          exposures = exp_order, ncol = 3,
-                          title = "SEPAGES - main models, average of second and third trimester",
-                          width = 24, height = 16)
+  # 3. Main model, six exposures, average t2-t3
+  main_avg = list(runs = run_avg, analyses = "main",
+                  exposures = exp_order, ncol = 3,
+                  title = paste(cohort_label, "- main models, average of second and third trimester"),
+                  width = 24, height = 16)
 )
+names(figures) <- paste(cohort, sample_set, names(figures), sep = "_")
 
 #==============================================================================#----
 # FIGURES - main and sensitivity analyses, one per exposure and time point      #----
@@ -78,11 +94,11 @@ figures <- list(
 
 for (e in exp_order) {
   for (tp in names(tp_runs)) {
-    figures[[paste0("sepages_", e, "_sens_", tp)]] <-
+    figures[[paste0(cohort, "_", sample_set, "_", e, "_sens_", tp)]] <-
       list(runs = tp_runs[[tp]],
-           analyses = c("main", paste0("s", 1:5)),
+           analyses = c("main", paste0("s", 1:6)),
            exposures = e, ncol = 3,
-           title = paste0("SEPAGES - ", e, ", main and sensitivity analyses, ",
+           title = paste0(cohort_label, " - ", e, ", main and sensitivity analyses, ",
                           tp_labels[[tp]]),
            width = 24, height = 16)
   }
