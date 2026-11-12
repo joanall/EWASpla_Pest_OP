@@ -38,7 +38,7 @@ out_dir   <- results_dir(cohort, "3_Clean_Results", create = TRUE)
 list_file <- file.path(out_dir, "files_to_clean.txt")
 
 # Optional: analyses to include (comma-separated), e.g. "s6" or "main,s6"; default all
-analyses_all <- c("main", paste0("s", 1:6))
+analyses_all <- c("main", paste0("s", 1:7))
 analyses <- if (length(args) >= 3 && args[3] != "") strsplit(args[3], ",")[[1]] else analyses_all
 setdiff(analyses, analyses_all)    # should be character(0)
 stopifnot(all(analyses %in% analyses_all))

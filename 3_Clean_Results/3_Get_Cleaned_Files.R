@@ -55,7 +55,7 @@ stopifnot(length(run_folders) > 0)
 # Cleaned result files inside <run>/<analysis>/ (.rds only, not the QC .txt)
 all_files <- character(0)
 for (rf in run_folders) {
-  for (a in c("main", paste0("s", 1:6))) {
+  for (a in c("main", paste0("s", 1:7))) {
     f <- list.files(file.path(rf, a), pattern = "\\.rds$", full.names = TRUE)
     all_files <- c(all_files, f)
   }
