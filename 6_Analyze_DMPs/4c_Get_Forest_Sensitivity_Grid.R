@@ -59,12 +59,15 @@ models     <- c("main", sens_names)
 
 
 # Short names (y-axis) and descriptions (caption)
-model_short  <- c(main = "Main", s1 = "S1", s2 = "S2", s3 = "S3", s4 = "S4", s5 = "S5")
+model_short  <- c(main = "Main", s1 = "S1", s2 = "S2", s3 = "S3", s4 = "S4", s5 = "S5",
+                  s6 = "S6", s7 = "S7")
 model_labels <- c(s1 = "S1: Excluding pregnancy complications",
                   s2 = "S2: Europeans only",
                   s3 = "S3: Adjusted for specific gravity",
                   s4 = "S4: Adjusted for fruit and vegetable intake",
-                  s5 = "S5: Not adjusted for gestational age and cell type")
+                  s5 = "S5: Not adjusted for gestational age and cell type",
+                  s6 = "S6: Exposure outliers winsorized (P1-P99)",
+                  s7 = "S7: Exposure outliers winsorized (P5-P95)")
 stopifnot(all(models %in% names(model_short)),
           all(sens_names %in% names(model_labels)))   # every model has a name and description
 

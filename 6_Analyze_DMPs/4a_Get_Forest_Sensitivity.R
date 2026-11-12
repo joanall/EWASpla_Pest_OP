@@ -69,7 +69,8 @@ model_labels <- c(main = "Main model",
                   s3   = "S3: Adjusted for specific gravity",
                   s4   = "S4: Adjusted for fruit and vegetable intake",
                   s5   = "S5: Not adjusted for gestational age and cell type",
-                  s6   = "S6: Exposure outliers winsorized (P1-P99)")
+                  s6   = "S6: Exposure outliers winsorized (P1-P99)",
+                  s7   = "S7: Exposure outliers winsorized (P5-P95)")
 stopifnot(all(models %in% names(model_labels)))   # every model has a description
 
 # Exposure labels for titles
