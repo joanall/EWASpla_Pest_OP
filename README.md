@@ -26,7 +26,7 @@ This repository holds the analysis code for an epigenome-wide association study 
 | **Samples** | `2tp` = women with both time points (SEPAGES and BiSC); `tp` = all women with that time point (BiSC only) |
 | **Single-exposure models** | Robust linear regression per CpG (`MASS::rlm`) |
 | **Main covariates** | Maternal age, education, smoking, gestational age, child ethnicity, child sex, DNA contamination, 5 cell types (syncytiotrophoblast = reference); BiSC only: delivery hospital |
-| **Sensitivity analyses** | `s1` excluding pregnancy complications · `s2` excluding non-European participants · `s3` + specific gravity · `s4` + fruit and vegetable intake · `s5` without gestational age and cell types · `s6` exposure outliers winsorized at P1/P99 |
+| **Sensitivity analyses** | `s1` excluding pregnancy complications · `s2` excluding non-European participants · `s3` + specific gravity · `s4` + fruit and vegetable intake · `s5` without gestational age and cell types · `s6` exposure outliers winsorized at P1/P99 · `s7` winsorized at P5/P95 |
 | **Meta-analysis** | Fixed-effects inverse-variance meta-analysis of BiSC + SEPAGES with GWAMA |
 | **Mixture models** | Quantile g-computation (`qgcomp.noboot`) per CpG of 3-PBA, TCPy, ΣDMP and ΣDEP, with cohort-specific or shared BiSC + SEPAGES quantile cut-offs |
 
@@ -82,7 +82,7 @@ flowchart LR
 
     D0["<b>0 · Data preparation</b><br/>each cohort on its own PC"]:::both
     D1["<b>1 · Descriptives</b><br/>Table 1, exposures"]:::both
-    E2["<b>2 · EWAS</b><br/>rlm per CpG<br/>main + s1–s6"]:::both
+    E2["<b>2 · EWAS</b><br/>rlm per CpG<br/>main + s1–s7"]:::both
     M4["<b>8 · Mixtures</b><br/>qgcomp per CpG<br/>4 compounds"]:::both
     S36["<b>Steps 3–6</b> · same scripts for every analysis<br/><br/>3 · Clean results<br/>4 · QC (lambda, QQ plots)<br/>5 · Annotation<br/>6 · Explore DMPs (volcano, Manhattan,<br/>suggestive CpGs, forest plots)"]:::shared
     G7["<b>7 · Meta-analysis</b> (BiSC PC)<br/><br/>1–3 · GWAMA fixed effects<br/>7–8 · Forest plots<br/>9 · CI checks"]:::bisc
@@ -121,7 +121,7 @@ Rscript script/1_Get_Descriptives/2_Get_Descr_Chem.R sepages   # exposure distri
 
 ### Step 2 · EWAS (`2_Run_EWAS`)
 
-Arguments: `cohort`, `analysis` (`main`, `s1`...`s6`, `sens`, `all`), `time point`, `sample`, `run date`.
+Arguments: `cohort`, `analysis` (`main`, `s1`...`s7`, `sens`, `all`), `time point`, `sample`, `run date`.
 
 ```bash
 Rscript script/2_Run_EWAS/Run_EWAS.R sepages all t2 2tp 20261021
@@ -164,7 +164,7 @@ All scripts take `cohort` and a run-folder pattern. Run `1_` before `1b`/`1c`, `
 |---|---|
 | `1_Get_Volcano_Plot.R`, `1b_`, `1c_` | Volcano plot per model; panels by time point (`1c` with shared axes) |
 | `2_Get_Manhattan_Plot.R`, `2b_`, `2c_` | Manhattan plot per model; panels by time point (`2c` with shared y-axis) |
-| `3a_Get_Suggestive_Summary.R` | Tables 1–2: suggestive CpGs (p < 1e-5) and their look-up in s1–s6 |
+| `3a_Get_Suggestive_Summary.R` | Tables 1–2: suggestive CpGs (p < 1e-5) and their look-up in s1–s7 |
 | `3b_Get_Consistency_Summary.R` | Tables 3–4: t2 vs t3, CpGs shared across exposures |
 | `3c_Get_Avg_Consistency_Summary.R` | Tables 5–6: pregnancy average vs trimesters |
 | `3d_Get_Suggestive_Counts_Barplot.R` | Number of suggestive CpGs per exposure and direction |
@@ -266,7 +266,7 @@ results/bisc/
 ├── 2_Run_EWAS/
 │   └── bisc_tp_t2_20261022/            ← <cohort>_<sample>_<tp>_<date>
 │       ├── main/  24d_t2.rds  3pba_t2.rds  tcpy_t2.rds  dmp_t2.rds  dep_t2.rds  dap_t2.rds
-│       ├── s1/ ... s6/
+│       ├── s1/ ... s7/
 │       └── logs/
 ├── 3_Clean_Results/
 │   ├── bisc_tp_t2_20261022/main/tcpy_t2.rds           (+ _excluded_probes.txt, _cpg_qc_descriptives.txt)
