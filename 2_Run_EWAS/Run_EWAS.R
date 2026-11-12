@@ -38,23 +38,15 @@
 #   5) run date:   YYYYMMDD (optional; default today)
 #   6) argument: 24d", "3pba", "tcpy", "dmp", "dep", "dap" (default: all)
 
-# Example: 
-#   Rscript script/2_Run_Models/Run_EWAS.R sepages all t2
-#   Rscript script/2_Run_Models/Run_EWAS.R bisc main t3 tp 20261021
-# maximising the sample
-# Rscript script/2_Run_Models/Run_EWAS.R bisc main avg tp  <date>
-# restricted to both time points
-#Rscript script/2_Run_Models/Run_EWAS.R bisc main avg 2tp <date>
-
-#  nohup Rscript script/2_Run_Models/Run_EWAS.R sepages all avg 2tp 20261021 \
-#  results/2_EWAS_Results/sepages_main_avg.log 2>&1 &
-
-
-
+# Example (from the project root, same command on both PCs):
+#   Rscript script/2_Run_EWAS/Run_EWAS.R sepages main t3 2tp 20261021
+# in the background:
+#   nohup Rscript script/2_Run_EWAS/Run_EWAS.R sepages all avg 2tp 20261021 \
+#     > results/sepages/2_Run_EWAS/sepages_main_avg.log 2>&1 &
 #
 # [INPUT]:  subsets (see COHORT SETTINGS) and preprocessed betas
 #           (rows = CpGs, columns = Basename)
-# [OUTPUT]: results/2_EWAS_Results/<cohort>_<sample>_<tp>_<date>/<analysis>/
+# [OUTPUT]: results/<cohort>/2_Run_EWAS/<cohort>_<sample>_<tp>_<date>/<analysis>/
 #           <exposure>_<tp>.rds: data.frame, rows = CpGs:
 #           Effect, SE, tvalue, pvalue, CpG
 #==============================================================================#
@@ -66,6 +58,7 @@ library(MASS)
 library(sfsmisc)
 library(foreach)
 library(doParallel)
+source("script/00_paths.R")
 source("script/00_functions.R")
 
 n_cores <- as.numeric(Sys.getenv("SLURM_CPUS_PER_TASK", unset = 8))
@@ -79,7 +72,7 @@ sample_set   <- if (length(args) >= 4) args[4] else "2tp"
 run_date     <- if (length(args) >= 5) args[5] else format(Sys.Date(), "%Y%m%d")
 exposure_arg <- if (length(args) >= 6) args[6] else "all"   # e.g. "24d" or "24d,3pba"
 
-stopifnot(cohort %in% c("sepages", "bisc"))
+check_cohort(cohort, c("sepages", "bisc"))
 stopifnot(time_point %in% c("t2", "t3", "avg"))
 stopifnot(sample_set %in% c("2tp", "tp"))
 if (cohort == "sepages" && sample_set == "tp") stop("SEPAGES has only the 2tp sample")
@@ -98,23 +91,15 @@ stopifnot(all(which_analyses %in% c("main", paste0("s", 1:6))))
 # COHORT SETTINGS                                                              #----
 #==============================================================================#----
 
-if (cohort == "sepages") {
-  betas_path <- "db/plaDNAm_data/SEPAGES_20230615_PreprocessedBetas_nooutliers.RData"
-  subset_dir <- "db/subsets/"
-  extra_cov  <- character(0)
-}
-
-if (cohort == "bisc") {
-  betas_path <- "db/methylation_data/bVals_BISC_nosib_noout_nomask.RDS"  
-  subset_dir <- if (sample_set == "2tp") "db/subsets_2tp/" else "db/subsets/"
-  extra_cov  <- "hospital"
-}
+# Betas and subsets: paths defined in 00_paths.R (db/ of the PC of that cohort)
+betas_path <- db_betas(cohort)
+extra_cov  <- if (cohort == "bisc") "hospital" else character(0)
 
 # Subset file per analysis: df_main.rds (2tp) or df_main_t2.rds (tp)
 # s6 (winsorized exposures) uses the main subset: no df_s6 file needed
-file_suffix <- if (sample_set == "2tp") "" else paste0("_", time_point)
 subset_name <- ifelse(which_analyses == "s6", "main", which_analyses)
-subset_path <- setNames(paste0(subset_dir, "df_", subset_name, file_suffix, ".rds"),
+file_suffix <- if (sample_set == "2tp") "" else paste0("_", time_point)
+subset_path <- setNames(paste0(db_subset_dir(cohort, sample_set), "df_", subset_name, file_suffix, ".rds"),
                         which_analyses)
 subset_path
 stopifnot(all(file.exists(subset_path)))
@@ -123,8 +108,8 @@ stopifnot(all(file.exists(subset_path)))
 # RESULTS FOLDER & LOG                                                         #----
 #==============================================================================#----
 
-results_folder <- file.path("results/2_EWAS_Results",
-                            paste(cohort, sample_set, time_point, run_date, sep = "_"))
+results_folder <- results_dir(cohort, "2_Run_EWAS",
+                              paste(cohort, sample_set, time_point, run_date, sep = "_"))
 dir.create(results_folder, recursive = TRUE, showWarnings = FALSE)
 
 log_folder <- file.path(results_folder, "logs")

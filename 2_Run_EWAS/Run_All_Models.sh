@@ -1,19 +1,24 @@
 #!/bin/bash
 #==============================================================================#
-# Run all EWAS sequentially - SEPAGES
-# 1) Main t2  2) Main t3  3) Sensitivity t2  4) Sensitivity t3
-# Usage (from the project folder):
-#   nohup bash script/2_Run_Models/Run_All_Models.sh > results/2_EWAS_Results/Run_All_Models.log 2>&1 &
-# To follow progress: tail -f results/2_EWAS_Results/Run_All_Models.log
+# Run all EWAS sequentially for one cohort: every time point, all analyses
+# (main + s1-s6), with one run date for the whole batch.
+# Usage (from the project root, same command on both PCs):
+#   nohup bash script/2_Run_EWAS/Run_All_Models.sh sepages 2tp > results/sepages/2_Run_EWAS/Run_All_Models.log 2>&1 &
+#   nohup bash script/2_Run_EWAS/Run_All_Models.sh bisc tp     > results/bisc/2_Run_EWAS/Run_All_Models.log 2>&1 &
+# Arguments: 1) cohort (sepages / bisc)  2) sample (2tp / tp; default 2tp)
+#            3) time points (default "t2 t3 avg")
+# To follow progress: tail -f results/<cohort>/2_Run_EWAS/Run_All_Models.log
 # To exit tail: Ctrl + C (the runs keep going)
 #==============================================================================#
 
-models=(1 2 3 4 5 6)
-time_points=(t2 t3)
+cohort=${1:?"cohort missing: sepages or bisc"}
+sample_set=${2:-2tp}
+time_points=(${3:-t2 t3 avg})
 run_date=$(date '+%Y%m%d')   # one date for the whole batch
 failed=()
 
-echo "Run date: $run_date"
+mkdir -p "results/${cohort}/2_Run_EWAS"
+echo "Cohort: $cohort | Sample: $sample_set | Time points: ${time_points[*]} | Run date: $run_date"
 
 run_step() {   # $1 = label, rest = command
   label=$1; shift
@@ -26,48 +31,14 @@ run_step() {   # $1 = label, rest = command
   fi
 }
 
-# 1) and 2) Main models, t2 then t3
-#for tp in "${time_points[@]}"; do
-#  for m in "${models[@]}"; do
-#    run_step "Main $tp model $m" Rscript script/2_Run_Models/1_Run_Main_Model.R "$m" "$tp" "$run_date"
-#  done
-#done
-
-# 3) and 4) Sensitivity models, t2 then t3 (5 sensitivities x 6 exposures each)
-#for tp in "${time_points[@]}"; do
-#  run_step "Sensitivity $tp" Rscript script/2_Run_Models/2_Run_Sens_Models.R all "$tp" "$run_date"
-#done
-
-#if [ ${#failed[@]} -eq 0 ]; then
-#  echo "All steps completed successfully."
-#else
-#  echo "Failed steps: ${failed[*]}"
-#  exit 1
-#fi
-
-
-
-
-#!/bin/bash
-#==============================================================================#
-# Rerun main model 1 (2,4-D) + all sensitivity analyses - SEPAGES
-# Usage (from the project folder):
-#   nohup bash script/2_Run_Models/Run_24d_and_Sens.sh > results/2_EWAS_Results/Run_24d_and_Sens.log 2>&1 &
-# Follow: tail -f results/2_EWAS_Results/Run_24d_and_Sens.log
-#==============================================================================#
-
-orig_date=20261020           # date of the existing main_t2_ / main_t3_ folders
-sens_date=$(date +%Y%m%d)
-
-for tp in t2 t3; do
-  echo "[$(date '+%H:%M')] Main model 1 - $tp"
-  Rscript script/2_Run_Models/1_Run_Main_Model.R 1 $tp $orig_date || echo "FAILED: main 1 $tp"
+for tp in "${time_points[@]}"; do
+  run_step "$cohort $sample_set $tp (all analyses)" \
+    Rscript script/2_Run_EWAS/Run_EWAS.R "$cohort" all "$tp" "$sample_set" "$run_date"
 done
 
-for tp in t2 t3; do
-  echo "[$(date '+%H:%M')] Sensitivity - $tp"
-  Rscript script/2_Run_Models/2_Run_Sens_Models.R all $tp $sens_date || echo "FAILED: sens $tp"
-done
-
-echo "[$(date '+%H:%M')] Done"
-
+if [ ${#failed[@]} -eq 0 ]; then
+  echo "All steps completed successfully."
+else
+  echo "Failed steps: ${failed[*]}"
+  exit 1
+fi
