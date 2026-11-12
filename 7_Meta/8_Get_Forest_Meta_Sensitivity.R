@@ -53,7 +53,7 @@ outdir   <- file.path(outdir, run_date)
 dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
 stopifnot(all(tps_arg %in% c("t2", "t3", "avg")))
 
-sens_all <- paste0("s", 1:6)
+sens_all <- paste0("s", 1:7)
 
 
 # Model descriptions (y-axis labels)
@@ -63,7 +63,8 @@ model_labels <- c(main = "Main model",
                   s3   = "S3: Adjusted for specific gravity",
                   s4   = "S4: Adjusted for fruit and vegetable intake",
                   s5   = "S5: Not adjusted for gestational age and cell type",
-                  s6   = "S6: Exposure outliers winsorized (P1-P99)")
+                  s6   = "S6: Exposure outliers winsorized (P1-P99)",
+                  s7   = "S7: Exposure outliers winsorized (P5-P95)")
 
 # Exposure labels for titles
 exp_code   <- c("24d",   "3pba",  "tcpy", "dmp",  "dep",  "dap",  "mix")

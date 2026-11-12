@@ -92,7 +92,7 @@ list_clean_run <- function(dir_clean, run) {
   dir_run <- file.path(dir_clean, run)
   if (!dir.exists(dir_run)) stop("Run folder not found: ", dir_run)
   analyses <- list.dirs(dir_run, recursive = FALSE, full.names = FALSE)
-  analyses <- analyses[analyses %in% c("main", paste0("s", 1:6))]   # skips logs/
+  analyses <- analyses[analyses %in% c("main", paste0("s", 1:7))]   # skips logs/
   stopifnot(length(analyses) > 0)
   
   files_run <- data.frame(analysis = character(0), exposure = character(0),
