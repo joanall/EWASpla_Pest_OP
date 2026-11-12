@@ -11,28 +11,34 @@
 # - Filled point: suggestive (p < 1e-5) at that time point.
 # Label: CpG (gene) - genes de-duplicated; CpG only if intergenic.
 # Uses Tables 1-2 from 3a_Get_Suggestive_Summary.R (run it first).
-# Argument: pattern for the runs (one cohort, sample and run date), e.g.
-#   Rscript script/6_Analyze_Results/4b_Get_Forest_Time_Points.R "sepages_2tp_t[23]_20261021"
+# Arguments: 1) cohort (bisc / sepages / meta / bisc_mix / sepages_mix / meta_mix), 2) pattern for the runs (one cohort, sample and run date), e.g.
+#   Rscript script/6_Analyze_DMPs/4b_Get_Forest_Tp.R sepages "sepages_2tp_t[23]_20261021"
 #
-# [INPUT]:  results/5_Annotation/files_annotated_index.csv
-#           -> results/5_Annotation/<run>/main/<exposure>_<tp>_annotated.rds
-#           results/6_Analyze_Results/summary_tables/<tag>/table1_suggestive_t2.rds,
+# (<cohort> = bisc / sepages; meta = results/7_Meta/)
+# [INPUT]:  results/<cohort>/5_Annotation/files_annotated_index.csv
+#           -> results/<cohort>/5_Annotation/<run>/main/<exposure>_<tp>_annotated.rds
+#           results/<cohort>/6_Analyze_DMPs/summary_tables/<tag>/table1_suggestive_t2.rds,
 #           table2_suggestive_t3.rds
-# [OUTPUT]: results/6_Analyze_Results/summary_tables/<tag>/forest_t2_t3_<exposure>.png
+# [OUTPUT]: results/<cohort>/6_Analyze_DMPs/summary_tables/<tag>/forest_t2_t3_<exposure>.png
 #==============================================================================#
 
 #==============================================================================#----
 # SET UP                                                                       #----
 #==============================================================================#----
+source("script/00_paths.R")
+
+args <- commandArgs(trailingOnly = TRUE)
+cohort      <- if (length(args) >= 1) args[1] else "bisc"
+run_pattern <- if (length(args) >= 2 && args[2] != "") args[2] else "."
+check_cohort(cohort)
+
 source("script/00_template_plot.R")
 source("script/00_functions.R")
 
-index_file  <- "results/5_Annotation/files_annotated_index.csv"
+index_file  <- results_dir(cohort, "5_Annotation", "files_annotated_index.csv")
 cutoff_sugg <- 1e-5    # suggestive threshold (filled points)
 n_top_plot  <- 20      # CpGs per plot
 
-args <- commandArgs(trailingOnly = TRUE)
-run_pattern <- if (length(args) >= 1 && args[1] != "") args[1] else "."
 # run_pattern <- "sepages_2tp_t[23]_20261021"   # TEST
 
 files_index <- read.csv(index_file, stringsAsFactors = FALSE)
@@ -46,13 +52,13 @@ stopifnot(all(file.exists(main_index$path)))
 table(main_index$exposure, main_index$time_point)   # 1 per cell
 
 tag    <- paste(main_index$cohort[1], main_index$sample[1], main_index$run_date[1], sep = "_")
-outdir <- file.path("results/6_Analyze_Results/summary_tables", tag)
+outdir <- file.path(results_dir(cohort, "6_Analyze_DMPs", "summary_tables"), tag)
 
 exposures <- unique(main_index$exposure)
 
 # Exposure labels for titles
-exp_code   <- c("24d",   "3pba",  "tcpy", "dmp",  "dep",  "dap")
-exp_labels <- c("2,4-D", "3-PBA", "TCPy", "ΣDMP", "ΣDEP", "ΣDAP")
+exp_code   <- c("24d",   "3pba",  "tcpy", "dmp",  "dep",  "dap",  "mix")
+exp_labels <- c("2,4-D", "3-PBA", "TCPy", "ΣDMP", "ΣDEP", "ΣDAP", "Mixture")
 
 # Label: "CpG (gene)", genes de-duplicated ("A;A;B" -> "A;B"); CpG only if no gene
 make_label <- function(cpg, gene) {

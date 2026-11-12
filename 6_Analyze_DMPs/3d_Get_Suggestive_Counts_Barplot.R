@@ -14,28 +14,33 @@
 # - Table: counts per exposure x time point (+ totals per time point).
 # - ΣDAP (composite of ΣDMP + ΣDEP) is reported in the table only, not plotted.
 # Self-contained: counts are taken from the annotated main results.
-# Argument: pattern for the runs (one cohort, sample and run date), e.g.
-#   Rscript script/6_Analyze_Results/3d_Get_Suggestive_Counts_Barplot.R "sepages_2tp_t[23]_20261021"
-#   Rscript script/6_Analyze_Results/3d_Get_Suggestive_Counts_Barplot.R "sepages_2tp_(t2|t3|avg)_20261021"
+# Arguments: 1) cohort (bisc / sepages / meta / bisc_mix / sepages_mix / meta_mix), 2) pattern for the runs (one cohort, sample and run date), e.g.
+#   Rscript script/6_Analyze_DMPs/3d_Get_Suggestive_Counts_Barplot.R sepages "sepages_2tp_t[23]_20261021"
+#   Rscript script/6_Analyze_DMPs/3d_Get_Suggestive_Counts_Barplot.R sepages "sepages_2tp_(t2|t3|avg)_20261021"
 #
-# [INPUT]:  results/5_Annotation/files_annotated_index.csv
-#           -> results/5_Annotation/<run>/main/<exposure>_<tp>_annotated.rds
-# [OUTPUT]: results/6_Analyze_Results/summary_tables/<cohort>_<sample>_<date>/
+# (<cohort> = bisc / sepages; meta = results/7_Meta/)
+# [INPUT]:  results/<cohort>/5_Annotation/files_annotated_index.csv
+#           -> results/<cohort>/5_Annotation/<run>/main/<exposure>_<tp>_annotated.rds
+# [OUTPUT]: results/<cohort>/6_Analyze_DMPs/summary_tables/<cohort>_<sample>_<date>/
 #           barplot_suggestive_counts_<tps>.png, table_suggestive_counts_<tps>.xlsx
 #==============================================================================#
 
 #==============================================================================#----
 # SET UP                                                                       #----
 #==============================================================================#----
-source("script/00_template_plot.R")
-library(writexl)   # .xlsx output: no separator/decimal issues when opening in Excel
+source("script/00_paths.R")
 
-index_file  <- "results/5_Annotation/files_annotated_index.csv"
+args <- commandArgs(trailingOnly = TRUE)
+cohort      <- if (length(args) >= 1) args[1] else "bisc"
+run_pattern <- if (length(args) >= 2 && args[2] != "") args[2] else "."
+check_cohort(cohort)
+
+source("script/00_template_plot.R")
+
+index_file  <- results_dir(cohort, "5_Annotation", "files_annotated_index.csv")
 cutoff_sugg <- 1e-5    # suggestive threshold
 cutoff_bn   <- 0.05    # Bonferroni-adjusted p threshold
 
-args <- commandArgs(trailingOnly = TRUE)
-run_pattern <- if (length(args) >= 1 && args[1] != "") args[1] else "."
 # run_pattern <- "sepages_2tp_t[23]_20261021"   # TEST
 
 files_index <- read.csv(index_file, stringsAsFactors = FALSE)
@@ -53,12 +58,12 @@ table(files_index$exposure, files_index$time_point)
 stopifnot(all(table(files_index$exposure, files_index$time_point) == 1))
 
 tag    <- paste(files_index$cohort[1], files_index$sample[1], files_index$run_date[1], sep = "_")
-outdir <- file.path("results/6_Analyze_Results/summary_tables", tag)
+outdir <- file.path(results_dir(cohort, "6_Analyze_DMPs", "summary_tables"), tag)
 dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
 
 # Exposure labels and order (top to bottom in the plot)
-exp_code   <- c("24d",   "3pba",  "tcpy", "dmp",  "dep",  "dap")
-exp_labels <- c("2,4-D", "3-PBA", "TCPy", "ΣDMP", "ΣDEP", "ΣDAP")
+exp_code   <- c("24d",   "3pba",  "tcpy", "dmp",  "dep",  "dap",  "mix")
+exp_labels <- c("2,4-D", "3-PBA", "TCPy", "ΣDMP", "ΣDEP", "ΣDAP", "Mixture")
 stopifnot(all(files_index$exposure %in% exp_code))
 
 # Exposures counted in the per-time-point totals.
@@ -138,9 +143,9 @@ tp_summary
 #==============================================================================#----
 
 tps_tag <- paste(time_points, collapse = "_")
-write_xlsx(list(per_exposure   = counts,
+save_table(list(per_exposure   = counts,
                 per_time_point = tp_summary),
-           file.path(outdir, paste0("table_suggestive_counts_", tps_tag, ".xlsx")))
+           file.path(outdir, paste0("table_suggestive_counts_", tps_tag)))
 
 #==============================================================================#----
 # PLOT: BARPLOT OF SUGGESTIVE CpGs                                             #----

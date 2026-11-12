@@ -11,28 +11,34 @@
 # comparable. The x-axis (genomic position) is already the same in all plots.
 # Same as 2b_Get_Manhattan_Panel.R except for the shared y-axis.
 # Uses the ggplot objects saved by the Manhattan plot script (run it first).
-# Argument (optional): pattern for the runs (default: all), e.g.
-#   Rscript script/6_Analyze_Results/5c_Get_Manhattan_Panel_Shared_Axes.R "sepages_2tp_t[23]_20261021"
+# Arguments: 1) cohort (bisc / sepages / meta / bisc_mix / sepages_mix / meta_mix), 2) pattern for the runs (default: all), e.g.
+#   Rscript script/6_Analyze_DMPs/2c_Get_Manhattan_Panel_Shared_Axes.R sepages "sepages_2tp_t[23]_20261021"
 #
-# [INPUT]:  results/5_Annotation/files_annotated_index.csv
-#           results/6_Analyze_Results/<run>/main/<exposure>_<tp>_manhplot.rds
-# [OUTPUT]: results/6_Analyze_Results/<run>/main/manhattan_panel_main_<tp>_shared_axes.png
+# (<cohort> = bisc / sepages; meta = results/7_Meta/)
+# [INPUT]:  results/<cohort>/5_Annotation/files_annotated_index.csv
+#           results/<cohort>/6_Analyze_DMPs/<run>/main/<exposure>_<tp>_manhplot.rds
+# [OUTPUT]: results/<cohort>/6_Analyze_DMPs/<run>/main/manhattan_panel_main_<tp>_shared_axes.png
 #==============================================================================#
 
 
 #==============================================================================#----
 # SET UP                                                                       #----
 #==============================================================================#----
+source("script/00_paths.R")
+
+args <- commandArgs(trailingOnly = TRUE)
+cohort      <- if (length(args) >= 1) args[1] else "bisc"
+run_pattern <- if (length(args) >= 2 && args[2] != "") args[2] else "."
+check_cohort(cohort)
+
 source("script/00_template_plot.R")
 source("script/00_functions.R")
 library(patchwork)
 
-index_file    <- "results/5_Annotation/files_annotated_index.csv"
-output_folder <- "results/6_Analyze_Results/"
+index_file    <- results_dir(cohort, "5_Annotation", "files_annotated_index.csv")
+output_folder <- paste0(results_dir(cohort, "6_Analyze_DMPs"), "/")
 
 # Select runs (argument: pattern, default all)
-args <- commandArgs(trailingOnly = TRUE)
-run_pattern <- if (length(args) >= 1 && args[1] != "") args[1] else "."
 # run_pattern <- "sepages_2tp_t2_20261021"   # TEST
 
 files_index <- read.csv(index_file, stringsAsFactors = FALSE)
@@ -47,8 +53,8 @@ files_index$plot_rds[!file.exists(files_index$plot_rds)]   # should be character
 stopifnot(all(file.exists(files_index$plot_rds)))           # run the Manhattan script first
 
 # Exposure labels and panel order
-exp_code   <- c("24d",   "3pba",  "tcpy", "dmp",  "dep",  "dap")
-exp_labels <- c("2,4-D", "3-PBA", "TCPy", "ΣDMP", "ΣDEP", "ΣDAP")
+exp_code   <- c("24d",   "3pba",  "tcpy", "dmp",  "dep",  "dap",  "mix")
+exp_labels <- c("2,4-D", "3-PBA", "TCPy", "ΣDMP", "ΣDEP", "ΣDAP", "Mixture")
 
 # One panel per run x time point
 files_index$panel <- paste(files_index$run, files_index$time_point, sep = "|")

@@ -15,13 +15,14 @@
 #              included in the pattern; tables 3-6 are taken by 3b / 3c)
 # Consistency across time points and exposures (Objective 2) is in
 #   3b_Get_Consistency_Summary.R, which reads Tables 1-2 produced here.
-# Argument: pattern for the runs (one cohort, sample and run date), e.g.
-#   Rscript script/6_Analyze_Results/3a_Get_Suggestive_Summary.R "sepages_2tp_t[23]_20261021"
-#   Rscript script/6_Analyze_Results/3a_Get_Suggestive_Summary.R "bisc_2tp_(t2|t3|avg)_20261022"
+# Arguments: 1) cohort (bisc / sepages / meta / bisc_mix / sepages_mix / meta_mix), 2) pattern for the runs (one cohort, sample and run date), e.g.
+#   Rscript script/6_Analyze_DMPs/3a_Get_Suggestive_Summary.R sepages "sepages_2tp_t[23]_20261021"
+#   Rscript script/6_Analyze_DMPs/3a_Get_Suggestive_Summary.R bisc "bisc_2tp_(t2|t3|avg)_20261022"
 #
-# [INPUT]:  results/5_Annotation/files_annotated_index.csv
-#           -> results/5_Annotation/<run>/<analysis>/<exposure>_<tp>_annotated.rds
-# [OUTPUT]: results/6_Analyze_Results/summary_tables/<cohort>_<sample>_<date>/
+# (<cohort> = bisc / sepages; meta = results/7_Meta/)
+# [INPUT]:  results/<cohort>/5_Annotation/files_annotated_index.csv
+#           -> results/<cohort>/5_Annotation/<run>/<analysis>/<exposure>_<tp>_annotated.rds
+# [OUTPUT]: results/<cohort>/6_Analyze_DMPs/summary_tables/<cohort>_<sample>_<date>/
 #           table1_suggestive_t2.xlsx/.rds, table2_suggestive_t3.xlsx/.rds,
 #           table7_suggestive_avg.xlsx/.rds
 #==============================================================================#
@@ -29,15 +30,19 @@
 #==============================================================================#----
 # SET UP                                                                       #----
 #==============================================================================#----
-source("script/00_functions.R")
-library(writexl)   # .xlsx output: no separator/decimal issues when opening in Excel
+source("script/00_paths.R")
 
-index_file   <- "results/5_Annotation/files_annotated_index.csv"
+args <- commandArgs(trailingOnly = TRUE)
+cohort      <- if (length(args) >= 1) args[1] else "bisc"
+run_pattern <- if (length(args) >= 2 && args[2] != "") args[2] else "."
+check_cohort(cohort)
+
+source("script/00_functions.R")
+
+index_file   <- results_dir(cohort, "5_Annotation", "files_annotated_index.csv")
 cutoff_sugg  <- 1e-5    # suggestive threshold
 cutoff_nom   <- 0.05    # nominal threshold for look-up replication
 
-args <- commandArgs(trailingOnly = TRUE)
-run_pattern <- if (length(args) >= 1 && args[1] != "") args[1] else "."
 # run_pattern <- "sepages_2tp_t[23]_20261021"   # TEST
 
 files_index <- read.csv(index_file, stringsAsFactors = FALSE)
@@ -54,7 +59,7 @@ main_index <- files_index[files_index$analysis == "main", ]
 sens_index <- files_index[files_index$analysis != "main", ]
 
 tag    <- paste(main_index$cohort[1], main_index$sample[1], main_index$run_date[1], sep = "_")
-outdir <- file.path("results/6_Analyze_Results/summary_tables", tag)
+outdir <- file.path(results_dir(cohort, "6_Analyze_DMPs", "summary_tables"), tag)
 dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
 
 exposures <- unique(main_index$exposure)
@@ -122,7 +127,7 @@ for (tp in tps_run) {
   tab <- tab[order(tab$exposure, tab$pvalue), ]
   n_tab <- table_number[[tp]]
   file_base <- file.path(outdir, paste0("table", n_tab, "_suggestive_", tp))
-  write_xlsx(tab, paste0(file_base, ".xlsx"))
+  save_table(tab, file_base, png = FALSE)
   saveRDS(tab, paste0(file_base, ".rds"))
   cat("Table", n_tab, "-", tp, ":", nrow(tab), "suggestive CpGs\n")
 }

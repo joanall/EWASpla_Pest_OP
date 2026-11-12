@@ -8,27 +8,33 @@
 # [DESCRIPTION]: Collect the suggestive CpGs (p < 1e-5) of every annotated EWAS
 # result (main + sensitivity) into one long table: one row per CpG per model,
 # with the model described by the index columns.
-# Arguments (optional): 1) pattern for the runs (default: all)
-#                       2) p-value cutoff (default: 1e-5)
-#   Rscript script/6_Analyze_Results/5_Get_Suggestive_CpGs_Anno.R "sepages_2tp_t[23]_20261021" 1e-5
+# Arguments: 1) cohort (bisc / sepages / meta / bisc_mix / sepages_mix / meta_mix), 2) pattern for the runs (default: all)
+#            3) p-value cutoff (default: 1e-5)
+#   Rscript script/6_Analyze_DMPs/5_Get_Suggestive_CpGs_Anno.R sepages "sepages_2tp_t[23]_20261021" 1e-5
 #
-# [INPUT]:  results/5_Annotation/files_annotated_index.csv
-#           -> results/5_Annotation/<run>/<analysis>/<exposure>_<tp>_annotated.rds
-# [OUTPUT]: results/6_Analyze_Results/summary_tables/all_suggestive_<pattern>.csv / .rds
-#           results/6_Analyze_Results/summary_tables/n_suggestive_<pattern>.csv
+# (<cohort> = bisc / sepages; meta = results/7_Meta/)
+# [INPUT]:  results/<cohort>/5_Annotation/files_annotated_index.csv
+#           -> results/<cohort>/5_Annotation/<run>/<analysis>/<exposure>_<tp>_annotated.rds
+# [OUTPUT]: results/<cohort>/6_Analyze_DMPs/summary_tables/all_suggestive_<pattern>.csv / .rds
+#           results/<cohort>/6_Analyze_DMPs/summary_tables/n_suggestive_<pattern>.csv
 #==============================================================================#-
 
 #==============================================================================#----
 # SET UP                                                                       #----
 #==============================================================================#----
-
-index_file <- "results/5_Annotation/files_annotated_index.csv"
-outdir     <- "results/6_Analyze_Results/summary_tables"
-dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
+source("script/00_paths.R")
+source("script/00_template_plot.R")   # palettes, save_table()
 
 args <- commandArgs(trailingOnly = TRUE)
-run_pattern <- if (length(args) >= 1 && args[1] != "") args[1] else "."
-cutoff_sugg <- if (length(args) >= 2) as.numeric(args[2]) else 1e-5
+cohort      <- if (length(args) >= 1) args[1] else "bisc"
+run_pattern <- if (length(args) >= 2 && args[2] != "") args[2] else "."
+check_cohort(cohort)
+cutoff_sugg <- if (length(args) >= 3) as.numeric(args[3]) else 1e-5
+
+index_file <- results_dir(cohort, "5_Annotation", "files_annotated_index.csv")
+outdir     <- results_dir(cohort, "6_Analyze_DMPs", "summary_tables")
+dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
+
 # run_pattern <- "sepages_2tp_t[23]_20261021"   # TEST
 
 files_index <- read.csv(index_file, stringsAsFactors = FALSE)
@@ -104,9 +110,9 @@ all_sugg <- all_sugg[order(all_sugg$run, all_sugg$analysis, all_sugg$exposure, a
 nrow(all_sugg) == sum(n_per_mod$n_suggestive)   # TRUE
 head(all_sugg)
 
-write.csv(all_sugg, file.path(outdir, paste0("all_suggestive_", tag, ".csv")), row.names = FALSE)
+save_table(all_sugg, file.path(outdir, paste0("all_suggestive_", tag)), png = FALSE)
 saveRDS(all_sugg,   file.path(outdir, paste0("all_suggestive_", tag, ".rds")))
-write.csv(n_per_mod, file.path(outdir, paste0("n_suggestive_", tag, ".csv")), row.names = FALSE)
+save_table(n_per_mod, file.path(outdir, paste0("n_suggestive_", tag)), png = FALSE)
 
 #==============================================================================#----
 # END OF SCRIPT                                                                #----

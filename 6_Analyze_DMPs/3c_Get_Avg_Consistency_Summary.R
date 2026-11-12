@@ -22,13 +22,14 @@
 # replication. In BiSC, use the 2tp sample so all models have the same women.
 # Self-contained: suggestive CpGs are taken from the annotated main results
 # (does not need 3a).
-# Argument: pattern for the runs (one cohort, sample and run date, with t2, t3
+# Arguments: 1) cohort (bisc / sepages / meta / bisc_mix / sepages_mix / meta_mix), 2) pattern for the runs (one cohort, sample and run date, with t2, t3
 # and avg), e.g.
-#   Rscript script/6_Analyze_Results/3c_Get_Avg_Consistency_Summary.R "sepages_2tp_(t2|t3|avg)_20261021"
+#   Rscript script/6_Analyze_DMPs/3c_Get_Avg_Consistency_Summary.R sepages "sepages_2tp_(t2|t3|avg)_20261021"
 #
-# [INPUT]:  results/5_Annotation/files_annotated_index.csv
-#           -> results/5_Annotation/<run>/main/<exposure>_<tp>_annotated.rds
-# [OUTPUT]: results/6_Analyze_Results/summary_tables/<cohort>_<sample>_<date>/
+# (<cohort> = bisc / sepages; meta = results/7_Meta/)
+# [INPUT]:  results/<cohort>/5_Annotation/files_annotated_index.csv
+#           -> results/<cohort>/5_Annotation/<run>/main/<exposure>_<tp>_annotated.rds
+# [OUTPUT]: results/<cohort>/6_Analyze_DMPs/summary_tables/<cohort>_<sample>_<date>/
 #           table5_avg_vs_trimesters.xlsx/.rds, table6_avg_summary.xlsx,
 #           forest_t2_t3_avg_<exposure>.png
 #==============================================================================#
@@ -36,18 +37,22 @@
 #==============================================================================#----
 # SET UP                                                                       #----
 #==============================================================================#----
+source("script/00_paths.R")
+
+args <- commandArgs(trailingOnly = TRUE)
+cohort      <- if (length(args) >= 1) args[1] else "bisc"
+run_pattern <- if (length(args) >= 2 && args[2] != "") args[2] else "."
+check_cohort(cohort)
+
 source("script/00_template_plot.R")
 source("script/00_functions.R")
-library(writexl)   # .xlsx output: no separator/decimal issues when opening in Excel
 
-index_file  <- "results/5_Annotation/files_annotated_index.csv"
+index_file  <- results_dir(cohort, "5_Annotation", "files_annotated_index.csv")
 cutoff_sugg <- 1e-5    # suggestive threshold
 cutoff_nom  <- 0.05    # the association holds at the other time point: p < 0.05, same direction
 n_top_plot  <- 20      # CpGs per forest plot
 
-args <- commandArgs(trailingOnly = TRUE)
-run_pattern <- if (length(args) >= 1 && args[1] != "") args[1] else "."
-run_pattern <- "sepages_2tp_(t2|t3|avg)_20261021"   # TEST
+# run_pattern <- "sepages_2tp_(t2|t3|avg)_20261021"   # TEST
 
 files_index <- read.csv(index_file, stringsAsFactors = FALSE)
 files_index <- files_index[grepl(run_pattern, files_index$run), ]
@@ -66,16 +71,15 @@ table(main_index$exposure, main_index$time_point)
 stopifnot(all(time_points %in% main_index$time_point))
 
 tag    <- paste(main_index$cohort[1], main_index$sample[1], main_index$run_date[1], sep = "_")
-outdir <- file.path("results/6_Analyze_Results/summary_tables", tag)
+outdir <- file.path(results_dir(cohort, "6_Analyze_DMPs", "summary_tables"), tag)
 dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
 
 # Exposure labels and order
-exp_code   <- c("24d",   "3pba",  "tcpy", "dmp",  "dep",  "dap")
-exp_labels <- c("2,4-D", "3-PBA", "TCPy", "ΣDMP", "ΣDEP", "ΣDAP")
+exp_code   <- c("24d",   "3pba",  "tcpy", "dmp",  "dep",  "dap",  "mix")
+exp_labels <- c("2,4-D", "3-PBA", "TCPy", "ΣDMP", "ΣDEP", "ΣDAP", "Mixture")
 exposures  <- exp_code[exp_code %in% main_index$exposure]
 
 # Colours per time point (avg not in pal_time)
-pal_tp <- c(pal_time[c("t2", "t3")], avg = "grey20")
 
 # Label: "CpG (gene)", genes de-duplicated ("A;A;B" -> "A;B"); CpG only if no gene
 make_label <- function(cpg, gene) {
@@ -142,7 +146,7 @@ for (e in exposures) {
 # Check: CpGs per exposure and driven_by
 if (!is.null(table5)) {
   print(table(table5$exposure, factor(table5$driven_by, levels = c("both", "t2 only", "t3 only", "neither"))))
-  write_xlsx(table5, file.path(outdir, "table5_avg_vs_trimesters.xlsx"))
+  save_table(table5, file.path(outdir, "table5_avg_vs_trimesters"))
   saveRDS(table5, file.path(outdir, "table5_avg_vs_trimesters.rds"))
 } else {
   cat("No suggestive CpGs in the average models: Table 5 not written\n")
@@ -203,7 +207,7 @@ for (e in exposures) {
 stopifnot(all(table6$n_avg_holds_both + table6$n_avg_holds_t2_only +
                 table6$n_avg_holds_t3_only + table6$n_avg_holds_neither == table6$n_sugg_avg))
 table6
-write_xlsx(table6, file.path(outdir, "table6_avg_summary.xlsx"))
+save_table(table6, file.path(outdir, "table6_avg_summary"))
 
 #==============================================================================#----
 # FOREST PLOTS - t2, t3 AND avg                                                #----
@@ -252,7 +256,7 @@ for (e in exposures) {
     geom_vline(xintercept = 0, linetype = "dashed", colour = "grey60") +
     geom_pointrange(aes(xmin = lower, xmax = upper),
                     position = position_dodge(width = 0.7), size = 0.3) +
-    scale_colour_manual(values = pal_tp, labels = c(t2 = "t2", t3 = "t3", avg = "Average")) +
+    scale_colour_manual(values = pal_time, labels = c(t2 = "t2", t3 = "t3", avg = "Average")) +
     scale_shape_manual(values = c(`TRUE` = 16, `FALSE` = 1),
                        labels = c(`TRUE` = paste("p <", cutoff_sugg), `FALSE` = "not suggestive")) +
     labs(title = paste0(exp_label, ": t2, t3 and average"),

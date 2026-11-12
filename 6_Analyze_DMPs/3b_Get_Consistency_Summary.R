@@ -12,14 +12,15 @@
 #              (same direction & p < 0.05), correlation of effects (all CpGs)
 # - Table 4:   CpGs suggestive for >= 2 exposures at the same time point
 # - Plot:      shared suggestive CpGs between all exposure x time point pairs
-# Argument: pattern for the runs (one cohort, sample and run date), e.g.
-#   Rscript script/6_Analyze_Results/3b_Get_Consistency_Summary.R "sepages_2tp_t[23]_20261021"
+# Arguments: 1) cohort (bisc / sepages / meta / bisc_mix / sepages_mix / meta_mix), 2) pattern for the runs (one cohort, sample and run date), e.g.
+#   Rscript script/6_Analyze_DMPs/3b_Get_Consistency_Summary.R sepages "sepages_2tp_t[23]_20261021"
 #
-# [INPUT]:  results/5_Annotation/files_annotated_index.csv
-#           -> results/5_Annotation/<run>/main/<exposure>_<tp>_annotated.rds
-#           results/6_Analyze_Results/summary_tables/<cohort>_<sample>_<date>/
+# (<cohort> = bisc / sepages; meta = results/7_Meta/)
+# [INPUT]:  results/<cohort>/5_Annotation/files_annotated_index.csv
+#           -> results/<cohort>/5_Annotation/<run>/main/<exposure>_<tp>_annotated.rds
+#           results/<cohort>/6_Analyze_DMPs/summary_tables/<cohort>_<sample>_<date>/
 #           table1_suggestive_t2.rds, table2_suggestive_t3.rds
-# [OUTPUT]: results/6_Analyze_Results/summary_tables/<cohort>_<sample>_<date>/
+# [OUTPUT]: results/<cohort>/6_Analyze_DMPs/summary_tables/<cohort>_<sample>_<date>/
 #           table3_t2_vs_t3.xlsx, table3_lookup_other_tp.xlsx/.rds,
 #           table4_shared_exposures.xlsx/.rds,
 #           overlap_matrix.xlsx, overlap_heatmap.png
@@ -28,16 +29,20 @@
 #==============================================================================#----
 # SET UP                                                                       #----
 #==============================================================================#----
+source("script/00_paths.R")
+
+args <- commandArgs(trailingOnly = TRUE)
+cohort      <- if (length(args) >= 1) args[1] else "bisc"
+run_pattern <- if (length(args) >= 2 && args[2] != "") args[2] else "."
+check_cohort(cohort)
+
 source("script/00_template_plot.R")
 source("script/00_functions.R")
-library(writexl)   # .xlsx output: no separator/decimal issues when opening in Excel
 
-index_file   <- "results/5_Annotation/files_annotated_index.csv"
+index_file   <- results_dir(cohort, "5_Annotation", "files_annotated_index.csv")
 cutoff_sugg  <- 1e-5    # suggestive threshold (as in 3a; plot subtitle only)
 cutoff_nom   <- 0.05    # nominal threshold for look-up replication
 
-args <- commandArgs(trailingOnly = TRUE)
-run_pattern <- if (length(args) >= 1 && args[1] != "") args[1] else "."
 # run_pattern <- "sepages_2tp_t[23]_20261021"   # TEST
 
 files_index <- read.csv(index_file, stringsAsFactors = FALSE)
@@ -53,7 +58,7 @@ main_index <- files_index[files_index$analysis == "main", ]
 table(main_index$exposure, main_index$time_point)   # 1 per cell
 
 tag    <- paste(main_index$cohort[1], main_index$sample[1], main_index$run_date[1], sep = "_")
-outdir <- file.path("results/6_Analyze_Results/summary_tables", tag)
+outdir <- file.path(results_dir(cohort, "6_Analyze_DMPs", "summary_tables"), tag)
 
 exposures <- unique(main_index$exposure)
 
@@ -108,7 +113,7 @@ lookup_cols <- c("exposure", "time_point", "CpG", "gene_name", "Effect", "pvalue
                  "other_tp", "Effect_other_tp", "pvalue_other_tp", "replicated_other_tp")
 lookup_tab  <- top_main[order(top_main$exposure, top_main$time_point, top_main$pvalue),
                         intersect(lookup_cols, colnames(top_main))]
-write_xlsx(lookup_tab, file.path(outdir, "table3_lookup_other_tp.xlsx"))
+save_table(lookup_tab, file.path(outdir, "table3_lookup_other_tp"), png = FALSE)
 saveRDS(lookup_tab, file.path(outdir, "table3_lookup_other_tp.rds"))
 
 #==============================================================================#----
@@ -137,7 +142,7 @@ for (e in exposures) {
   ))
 }
 table3
-write_xlsx(table3, file.path(outdir, "table3_t2_vs_t3.xlsx"))
+save_table(table3, file.path(outdir, "table3_t2_vs_t3"))
 
 #==============================================================================#----
 # TABLE 4: CpGs SHARED BETWEEN EXPOSURES (SAME TIME POINT)                     #----
@@ -150,7 +155,7 @@ shared <- shared[shared$n_exposures >= 2, ]
 shared$gene_name <- top_main$gene_name[match(shared$CpG, top_main$CpG)]
 shared <- shared[order(shared$time_point, -shared$n_exposures), ]
 shared
-write_xlsx(shared, file.path(outdir, "table4_shared_exposures.xlsx"))
+save_table(shared, file.path(outdir, "table4_shared_exposures"))
 saveRDS(shared, file.path(outdir, "table4_shared_exposures.rds"))
 
 #==============================================================================#----
@@ -169,7 +174,7 @@ stopifnot(all(diag(overlap_mx) == table(top_main$combo)[combo_order]))   # diago
 # write_xlsx drops row names -> model names as first column
 overlap_out <- data.frame(model = rownames(overlap_mx), unclass(overlap_mx),
                           check.names = FALSE, row.names = NULL)
-write_xlsx(overlap_out, file.path(outdir, "overlap_matrix.xlsx"))
+save_table(overlap_out, file.path(outdir, "overlap_matrix"))
 
 df_ov   <- expand.grid(x = combo_order, y = combo_order)
 df_ov$n <- as.vector(overlap_mx)

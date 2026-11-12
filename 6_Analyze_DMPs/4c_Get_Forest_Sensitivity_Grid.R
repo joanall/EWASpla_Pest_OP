@@ -14,28 +14,34 @@
 # - Panels ordered by exposure, then main-model p-value; free x-axis per panel.
 # - Short model names on the y-axis (S1-S5), described in the caption.
 # Uses Tables 1-2 from 3a_Get_Suggestive_Summary.R (run it first).
-# Argument: pattern for the runs (one cohort, sample and run date), e.g.
-#   Rscript script/6_Analyze_Results/4c_Get_Forest_Sensitivity_Grid.R "sepages_2tp_t[23]_20261021"
+# Arguments: 1) cohort (bisc / sepages / meta / bisc_mix / sepages_mix / meta_mix), 2) pattern for the runs (one cohort, sample and run date), e.g.
+#   Rscript script/6_Analyze_DMPs/4c_Get_Forest_Sensitivity_Grid.R sepages "sepages_2tp_t[23]_20261021"
 #
-# [INPUT]:  results/5_Annotation/files_annotated_index.csv (run selection)
-#           results/6_Analyze_Results/summary_tables/<tag>/table1_suggestive_t2.rds,
+# (<cohort> = bisc / sepages; meta = results/7_Meta/)
+# [INPUT]:  results/<cohort>/5_Annotation/files_annotated_index.csv (run selection)
+#           results/<cohort>/6_Analyze_DMPs/summary_tables/<tag>/table1_suggestive_t2.rds,
 #           table2_suggestive_t3.rds (with Effect_/SE_/pvalue_ s1-s5)
-# [OUTPUT]: results/6_Analyze_Results/summary_tables/<tag>/forest_sens_grid_<tp>.png
+# [OUTPUT]: results/<cohort>/6_Analyze_DMPs/summary_tables/<tag>/forest_sens_grid_<tp>.png
 #==============================================================================#
 
 #==============================================================================#----
 # SET UP                                                                       #----
 #==============================================================================#----
+source("script/00_paths.R")
+
+args <- commandArgs(trailingOnly = TRUE)
+cohort      <- if (length(args) >= 1) args[1] else "bisc"
+run_pattern <- if (length(args) >= 2 && args[2] != "") args[2] else "."
+check_cohort(cohort)
+
 source("script/00_template_plot.R")
 source("script/00_functions.R")
 
-index_file  <- "results/5_Annotation/files_annotated_index.csv"
+index_file  <- results_dir(cohort, "5_Annotation", "files_annotated_index.csv")
 cutoff_nom  <- 0.05    # the association holds in a sensitivity model: p < 0.05, same direction
 n_top_plot  <- 20      # max CpGs per exposure (as in 4a)
 n_col_grid  <- 6       # panels per row
 
-args <- commandArgs(trailingOnly = TRUE)
-run_pattern <- if (length(args) >= 1 && args[1] != "") args[1] else "."
 # run_pattern <- "sepages_2tp_t[23]_20261021"   # TEST
 
 files_index <- read.csv(index_file, stringsAsFactors = FALSE)
@@ -46,15 +52,11 @@ stopifnot(length(unique(files_index$cohort)) == 1,
 
 main_index <- files_index[files_index$analysis == "main", ]
 tag    <- paste(main_index$cohort[1], main_index$sample[1], main_index$run_date[1], sep = "_")
-outdir <- file.path("results/6_Analyze_Results/summary_tables", tag)
+outdir <- file.path(results_dir(cohort, "6_Analyze_DMPs", "summary_tables"), tag)
 
 sens_names <- sort(unique(files_index$analysis[files_index$analysis != "main"]))
 models     <- c("main", sens_names)
 
-pal_models <- c(main = "grey20",
-                s1 = pal_bright[["blue"]],  s2 = pal_bright[["cyan"]],
-                s3 = pal_bright[["green"]], s4 = pal_bright[["yellow"]],
-                s5 = pal_bright[["purple"]])
 
 # Short names (y-axis) and descriptions (caption)
 model_short  <- c(main = "Main", s1 = "S1", s2 = "S2", s3 = "S3", s4 = "S4", s5 = "S5")
@@ -67,8 +69,8 @@ stopifnot(all(models %in% names(model_short)),
           all(sens_names %in% names(model_labels)))   # every model has a name and description
 
 # Exposure labels and order
-exp_code   <- c("24d",   "3pba",  "tcpy", "dmp",  "dep",  "dap")
-exp_labels <- c("2,4-D", "3-PBA", "TCPy", "ΣDMP", "ΣDEP", "ΣDAP")
+exp_code   <- c("24d",   "3pba",  "tcpy", "dmp",  "dep",  "dap",  "mix")
+exp_labels <- c("2,4-D", "3-PBA", "TCPy", "ΣDMP", "ΣDEP", "ΣDAP", "Mixture")
 
 # Label: "CpG (gene)", genes de-duplicated ("A;A;B" -> "A;B"); CpG only if no gene
 make_label <- function(cpg, gene) {

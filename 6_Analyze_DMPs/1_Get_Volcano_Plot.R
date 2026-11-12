@@ -7,32 +7,38 @@
 #==============================================================================#
 # [DESCRIPTION]: Volcano plot for each annotated EWAS result (main + sensitivity).
 # Bonferroni-significant CpGs coloured by direction: hyper- vs hypomethylated.
-# Argument (optional): pattern for the runs to plot (default: all), e.g.
-#   Rscript script/6_Analyze_Results/1_Get_Volcano_Plot.R "sepages_2tp_t[23]_20261021"
+# Arguments: 1) cohort (bisc / sepages / meta / bisc_mix / sepages_mix / meta_mix), 2) pattern for the runs to plot (default: all), e.g.
+#   Rscript script/6_Analyze_DMPs/1_Get_Volcano_Plot.R sepages "sepages_2tp_t[23]_20261021"
 #
-# [INPUT]:  results/5_Annotation/files_annotated_index.csv
-#           -> results/5_Annotation/<run>/<analysis>/<exposure>_<tp>_annotated.rds
-# [OUTPUT]: results/6_Analyze_Results/<run>/<analysis>/<exposure>_<tp>_volcanoplot.png
-#           results/6_Analyze_Results/<run>/<analysis>/<exposure>_<tp>_volcanoplot.rds (ggplot object)
+# (<cohort> = bisc / sepages; meta = results/7_Meta/)
+# [INPUT]:  results/<cohort>/5_Annotation/files_annotated_index.csv
+#           -> results/<cohort>/5_Annotation/<run>/<analysis>/<exposure>_<tp>_annotated.rds
+# [OUTPUT]: results/<cohort>/6_Analyze_DMPs/<run>/<analysis>/<exposure>_<tp>_volcanoplot.png
+#           results/<cohort>/6_Analyze_DMPs/<run>/<analysis>/<exposure>_<tp>_volcanoplot.rds (ggplot object)
 #==============================================================================#
 
 
 #==============================================================================#----
 # SET UP                                                                       #----
 #==============================================================================#----
+source("script/00_paths.R")
+
+args <- commandArgs(trailingOnly = TRUE)
+cohort      <- if (length(args) >= 1) args[1] else "bisc"
+run_pattern <- if (length(args) >= 2 && args[2] != "") args[2] else "."
+check_cohort(cohort)
+
 source("script/00_template_plot.R")
 source("script/00_functions.R")
 
-list_file  <- "results/5_Annotation/files_annotated.txt"
-index_file <- "results/5_Annotation/files_annotated_index.csv"
-output_folder  <- "results/6_Analyze_Results/"
+list_file  <- results_dir(cohort, "5_Annotation", "files_annotated.txt")
+index_file <- results_dir(cohort, "5_Annotation", "files_annotated_index.csv")
+output_folder  <- paste0(results_dir(cohort, "6_Analyze_DMPs"), "/")
 dir.create(output_folder, recursive = TRUE, showWarnings = FALSE)
 
 # Select runs (argument: pattern, default all)
-args <- commandArgs(trailingOnly = TRUE)
-run_pattern <- if (length(args) >= 1 && args[1] != "") args[1] else "."
 # files_index <- files_index[1, ]   # TEST - remove for the real run
-run_pattern <- "sepages_2tp_t2_20261021"   # all 36 files of that run (6 analyses × 6 exposures)
+# run_pattern <- "sepages_2tp_t2_20261021"   # all 36 files of that run (6 analyses × 6 exposures)
 files_index <- read.csv(index_file, stringsAsFactors = FALSE)
 files_index <- files_index[grepl(run_pattern, files_index$run), ]
 cat("Files to plot:", nrow(files_index), "\n")
@@ -43,8 +49,8 @@ files_in[!file.exists(files_in)]   # should be character(0)
 stopifnot(all(file.exists(files_in)))
 
 # Exposure labels for titles
-exp_code   <- c("24d",   "3pba",  "tcpy", "dmp",  "dep",  "dap")
-exp_labels <- c("2,4-D", "3-PBA", "TCPy", "ΣDMP", "ΣDEP", "ΣDAP")
+exp_code   <- c("24d",   "3pba",  "tcpy", "dmp",  "dep",  "dap",  "mix")
+exp_labels <- c("2,4-D", "3-PBA", "TCPy", "ΣDMP", "ΣDEP", "ΣDAP", "Mixture")
 cutoff_sugg <- 1E-05
 
 #==============================================================================#----

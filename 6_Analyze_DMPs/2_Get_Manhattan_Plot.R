@@ -9,30 +9,36 @@
 # [DESCRIPTION]: Manhattan plot for each annotated EWAS result (main +
 # sensitivity). Suggestive CpGs (p < 1e-5) coloured by direction and labelled
 # as "CpG (gene)"; dashed line = Bonferroni, dotted = suggestive.
-# Argument (optional): pattern for the runs to plot (default: all), e.g.
-#   Rscript script/6_Analyze_Results/5_Get_Manhattan_Plot.R "sepages_2tp_t[23]_20261021"
+# Arguments: 1) cohort (bisc / sepages / meta / bisc_mix / sepages_mix / meta_mix), 2) pattern for the runs to plot (default: all), e.g.
+#   Rscript script/6_Analyze_DMPs/2_Get_Manhattan_Plot.R sepages "sepages_2tp_t[23]_20261021"
 #
-# [INPUT]:  results/5_Annotation/files_annotated_index.csv
-#           -> results/5_Annotation/<run>/<analysis>/<exposure>_<tp>_annotated.rds
+# (<cohort> = bisc / sepages; meta = results/7_Meta/)
+# [INPUT]:  results/<cohort>/5_Annotation/files_annotated_index.csv
+#           -> results/<cohort>/5_Annotation/<run>/<analysis>/<exposure>_<tp>_annotated.rds
 #           (chr and pos already in the annotated files)
-# [OUTPUT]: results/6_Analyze_Results/<run>/<analysis>/<exposure>_<tp>_manhplot.png
-#           results/6_Analyze_Results/<run>/<analysis>/<exposure>_<tp>_manhplot.rds (ggplot object)
+# [OUTPUT]: results/<cohort>/6_Analyze_DMPs/<run>/<analysis>/<exposure>_<tp>_manhplot.png
+#           results/<cohort>/6_Analyze_DMPs/<run>/<analysis>/<exposure>_<tp>_manhplot.rds (ggplot object)
 
 #==============================================================================#----
 # SET UP                                                                       #----
 #==============================================================================#----
+source("script/00_paths.R")
+
+args <- commandArgs(trailingOnly = TRUE)
+cohort      <- if (length(args) >= 1) args[1] else "bisc"
+run_pattern <- if (length(args) >= 2 && args[2] != "") args[2] else "."
+check_cohort(cohort)
+
 source("script/00_template_plot.R")
 source("script/00_functions.R")
 
-index_file    <- "results/5_Annotation/files_annotated_index.csv"
-output_folder <- "results/6_Analyze_Results/"
+index_file    <- results_dir(cohort, "5_Annotation", "files_annotated_index.csv")
+output_folder <- paste0(results_dir(cohort, "6_Analyze_DMPs"), "/")
 dir.create(output_folder, recursive = TRUE, showWarnings = FALSE)
 
 cutoff_sugg <- 1e-5    # suggestive threshold: dotted line, coloured and labelled CpGs
 
 # Select runs (argument: pattern, default all)
-args <- commandArgs(trailingOnly = TRUE)
-run_pattern <- if (length(args) >= 1 && args[1] != "") args[1] else "."
 # run_pattern <- "sepages_2tp_t2_20261021"   # TEST - one run
 
 files_index <- read.csv(index_file, stringsAsFactors = FALSE)

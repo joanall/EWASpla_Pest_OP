@@ -29,10 +29,11 @@
 # Example:
 #   Rscript script/6_Analyze_DMPs/6_Get_Scatter_Raw_Exposure.R bisc t3 tp 20261022 tcpy
 #
-# [INPUT]:  results/5_Annotation/files_annotated_index.csv
-#           -> results/5_Annotation/<run>/main/<exposure>_<tp>_annotated.rds
+# (<cohort> = bisc / sepages)
+# [INPUT]:  results/<cohort>/5_Annotation/files_annotated_index.csv
+#           -> results/<cohort>/5_Annotation/<run>/main/<exposure>_<tp>_annotated.rds
 #           subsets (same as Run_EWAS.R) and preprocessed betas
-# [OUTPUT]: results/6_Analyze_Results/scatter_raw/<run>/
+# [OUTPUT]: results/<cohort>/6_Analyze_DMPs/scatter_raw/<run>/
 #           scatter_raw_<exposure>_<tp>.pdf, scatter_log2_<exposure>_<tp>.pdf,
 #           scatter_ilog2_<exposure>_<tp>.pdf
 #           solo/scatter_raw_<exposure>_<tp>_<CpG>.png (and _log2_, _ilog2_)
@@ -42,9 +43,9 @@
 #==============================================================================#----
 # SET UP                                                                       #----
 #==============================================================================#----
+source("script/00_paths.R")
 source("script/00_template_plot.R")
 
-index_file   <- "results/bisc/5_Annotation/files_annotated_index.csv"
 cutoff_sugg  <- 1e-5          # top CpGs: suggestive in the main model
 n_top_plot      <- 50            # max CpGs to plot (ordered by p-value)
 panels_per_page <- 6             # CpGs per PDF page (2 rows x 3 columns)
@@ -58,7 +59,7 @@ sample_set <- if (length(args) >= 3) args[3] else "tp"
 run_date   <- if (length(args) >= 4) args[4] else "20261021"
 exp_code   <- if (length(args) >= 5) args[5] else "tcpy"
 
-stopifnot(cohort %in% c("sepages", "bisc"))
+check_cohort(cohort, c("sepages", "bisc"))   # needs the raw data: run on that cohort's PC
 stopifnot(time_point %in% c("t2", "t3", "avg"))
 stopifnot(exp_code %in% c("3pba", "tcpy", "dmp", "dep"))
 # ΣDMP / ΣDEP have no single raw variable: the raw molar sums (pest_*_ms_i_*) are used
@@ -67,23 +68,17 @@ exp_labels <- c("3pba" = "3-PBA", "tcpy" = "TCPy", "dmp" = "ΣDMP", "dep" = "ΣD
 exp_label  <- exp_labels[[exp_code]]
 exp_unit   <- if (exp_code %in% c("dmp", "dep")) "µmol/L" else "ng/mL"
 
-run_name <- paste(cohort, sample_set, time_point, run_date, sep = "_")
-outdir   <- file.path("results/6_Analyze_Results/scatter_raw", run_name)
+index_file <- results_dir(cohort, "5_Annotation", "files_annotated_index.csv")
+run_name   <- paste(cohort, sample_set, time_point, run_date, sep = "_")
+outdir   <- file.path(results_dir(cohort, "6_Analyze_DMPs", "scatter_raw"), run_name)
 dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
 
 #==============================================================================#----
 # COHORT SETTINGS (same as Run_EWAS.R)                                         #----
 #==============================================================================#----
 
-if (cohort == "sepages") {
-  betas_path  <- "db/plaDNAm_data/SEPAGES_20230615_PreprocessedBetas_nooutliers.RData"
-  subset_path <- "db/subsets/df_main.rds"
-}
-if (cohort == "bisc") {
-  betas_path  <- "db/methylation_data/bVals_BISC_nosib_noout_nomask.RDS"
-  subset_path <- if (sample_set == "2tp") "db/subsets_2tp/df_main.rds" else
-    paste0("db/subsets/df_main_", time_point, ".rds")
-}
+betas_path  <- db_betas(cohort)
+subset_path <- db_subset(cohort, "main", sample_set, time_point)
 stopifnot(file.exists(subset_path))
 
 #==============================================================================#----
@@ -297,7 +292,7 @@ for (scale_mode in scale_modes) {
   df_scale <- scale_data[[scale_mode]]
   pdf_file <- file.path(outdir, paste0("scatter_", scale_mode, "_", exp_code, "_", time_point, ".pdf"))
   
-  pdf(pdf_file, width = 26 / 2.54, height = 20 / 2.54)   # cm -> inches
+  pages <- list()
   for (pg in seq_len(n_pages)) {
     labels_page <- cpg_label[page_id == pg]
     df_page <- df_scale[df_scale$label %in% labels_page, ]
@@ -308,9 +303,9 @@ for (scale_mode in scale_modes) {
     # Fixed 2 x 3 grid: same panel size on the last (incomplete) page
     p_page <- make_scatter(df_page, scale_mode = scale_mode, n_col = 3, n_row = 2) +
       labs(caption = paste0("Page ", pg, " of ", n_pages, " | CpGs ordered by EWAS p-value"))
-    print(p_page)
+    pages[[pg]] <- p_page
   }
-  dev.off()
+  save_plots_pdf(pages, pdf_file, width = 26, height = 20)
   cat("Saved:", pdf_file, "\n")
 }
 
