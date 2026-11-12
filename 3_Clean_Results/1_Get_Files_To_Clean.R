@@ -8,30 +8,38 @@
 # [DESCRIPTION]: Write the list of EWAS result files to clean to a txt file
 # (one path per line). The txt can be edited by hand before cleaning.
 #
-# Arguments (optional):
-#   1) pattern for the run folders to include (regular expression; default: all),
+# Arguments:
+#   1) cohort: bisc / sepages (EWAS) or bisc_mix / sepages_mix (mixture models)
+#   2) pattern for the run folders to include (regular expression; default: all),
 #      e.g. "sepages_2tp_t[23]_old"
-#   2) analyses to include, comma-separated (default: main, s1 ... s6), e.g. "s6"
-#   Rscript script/3_Clean_Results/1_Get_Files_To_Clean.R "sepages_2tp_t[23]_old"
-#   Rscript script/3_Clean_Results/1_Get_Files_To_Clean.R "^bisc_tp_(t2|t3|avg)_20261022$" s6
+#   3) analyses to include, comma-separated (default: main, s1 ... s6), e.g. "s6"
+#   Rscript script/3_Clean_Results/1_Get_Files_To_Clean.R sepages "sepages_2tp_t[23]_old"
+#   Rscript script/3_Clean_Results/1_Get_Files_To_Clean.R bisc "^bisc_tp_(t2|t3|avg)_20261022$" s6
+#   Rscript script/3_Clean_Results/1_Get_Files_To_Clean.R sepages_mix "sepages_2tp_(t2|t3|avg)_20261109"
 #
-# [INPUT]:  results/2_EWAS_Results/<run>/<analysis>/<exposure>_<tp>.rds
-# [OUTPUT]: results/3_Clean_Results/files_to_clean.txt
+# [INPUT]:  results/<cohort>/2_Run_EWAS/<run>/<analysis>/<exposure>_<tp>.rds
+#           (mixtures: results/<cohort>/8_Mixtures/4_Run_Gcomp/<run>/<analysis>/mix_<tp>.rds)
+# [OUTPUT]: results/<cohort>/3_Clean_Results/files_to_clean.txt
+#           (mixtures: results/<cohort>/8_Mixtures/3_Clean_Results/files_to_clean.txt)
 #==============================================================================#
 
 #==============================================================================#----
 # SET UP                                                                       #----
 #==============================================================================#----
-in_dir    <- "results/2_EWAS_Results"
-out_dir   <- "results/3_Clean_Results"
-list_file <- file.path(out_dir, "files_to_clean.txt")
-dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+source("script/00_paths.R")
 
 args <- commandArgs(trailingOnly = TRUE)
-run_pattern <- if (length(args) >= 1 && args[1] != "") args[1] else "."
+cohort      <- if (length(args) >= 1) args[1] else "bisc"
+run_pattern <- if (length(args) >= 2 && args[2] != "") args[2] else "."
+check_cohort(cohort, c("bisc", "sepages", cohorts_mix))
+
+in_dir    <- raw_dir(cohort)   # 2_Run_EWAS (or 8_Mixtures/4_Run_Gcomp)
+out_dir   <- results_dir(cohort, "3_Clean_Results", create = TRUE)
+list_file <- file.path(out_dir, "files_to_clean.txt")
+
 # Optional: analyses to include (comma-separated), e.g. "s6" or "main,s6"; default all
 analyses_all <- c("main", paste0("s", 1:6))
-analyses <- if (length(args) >= 2 && args[2] != "") strsplit(args[2], ",")[[1]] else analyses_all
+analyses <- if (length(args) >= 3 && args[3] != "") strsplit(args[3], ",")[[1]] else analyses_all
 setdiff(analyses, analyses_all)    # should be character(0)
 stopifnot(all(analyses %in% analyses_all))
 cat("Analyses:", analyses, "\n")

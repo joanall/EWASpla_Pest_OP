@@ -3,43 +3,45 @@
 # BiSC and SEPAGES cohorts. 
 # Author: Joana Llauradó
 # Contact: joana.llaurado@isglobal.org                              
-# Date: Stay in Grenoble October - November 2026
+# Date: October - November 2026
 #==============================================================================#
 # [DESCRIPTION]: Remove unreliable probes from the EWAS results (filter_EPIC
 # list, exclude_CpGs()) and compute Bonferroni and FDR adjusted p-values on the
-# remaining CpGs. Works on any run folder of the new structure:
-#   results/2_EWAS_Results/<cohort>_<sample>_<tp>_<date>/<analysis>/<exposure>.rds
+# remaining CpGs. Works on any run folder of the structure:
+#   results/<cohort>/2_Run_EWAS/<cohort>_<sample>_<tp>_<date>/<analysis>/<exposure>.rds
 #
-# Step 1 writes the list of result files to clean to a txt file (one path per
-# line). Edit the txt by hand if needed, then step 2 cleans every file in it.
+# 1_Get_Files_To_Clean.R writes the list of result files to clean to a txt file
+# (one path per line). Edit the txt by hand if needed, then this script cleans
+# every file in it.
 #
-# Arguments (optional):
-#   1) pattern for the run folders to include (regular expression; default: all)
-#      e.g. "sepages_2tp_t2_old" or "^sepages_2tp_t[23]_20261021$"
-#   2) "keep" to reuse an existing txt instead of rewriting it
+# Argument: cohort (bisc / sepages, or bisc_mix / sepages_mix for the mixture
+# models: outputs in results/<cohort>/8_Mixtures/3_Clean_Results/)
+#   Rscript script/3_Clean_Results/2_Clean_Results.R sepages
 #
-#   Rscript script/3_Clean_Results/Clean_Results.R "sepages_2tp_t[23]_old"
-#   Rscript script/3_Clean_Results/Clean_Results.R "" keep
-#
-# [INPUT]:  results/2_EWAS_Results/<run>/<analysis>/<exposure>_<tp>.rds
+# [INPUT]:  results/<cohort>/3_Clean_Results/files_to_clean.txt
+#           -> results/<cohort>/2_Run_EWAS/<run>/<analysis>/<exposure>_<tp>.rds
 #           data.frame, rows = CpGs: Effect, SE, tvalue, pvalue, CpG
-# [OUTPUT]: results/3_Clean_Results/<run>/<analysis>/<exposure>_<tp>.rds
+# [OUTPUT]: results/<cohort>/3_Clean_Results/<run>/<analysis>/<exposure>_<tp>.rds
 #           data.frame, rows = CpGs: Effect, SE, tvalue, pvalue, CpG,
 #           pval_bn, pval_fdr
-#           results/3_Clean_Results/<run>/<analysis>/<exposure>_<tp>_excluded_probes.txt
-#           results/3_Clean_Results/<run>/<analysis>/<exposure>_<tp>_cpg_qc_descriptives.txt
-#           results/3_Clean_Results/clean_summary_<time>.csv
+#           .../<run>/<analysis>/<exposure>_<tp>_excluded_probes.txt
+#           .../<run>/<analysis>/<exposure>_<tp>_cpg_qc_descriptives.txt
+#           results/<cohort>/3_Clean_Results/clean_summary_<time>.csv
 #==============================================================================#
 
 #==============================================================================#----
 # SET UP                                                                       #----
 #==============================================================================#----
+source("script/00_paths.R")
 source("script/00_functions.R")
 
-in_dir    <- "results/2_EWAS_Results"
-out_dir   <- "results/3_Clean_Results"
+args   <- commandArgs(trailingOnly = TRUE)
+cohort <- if (length(args) >= 1) args[1] else "bisc"
+check_cohort(cohort, c("bisc", "sepages", cohorts_mix))
+
+in_dir    <- raw_dir(cohort)   # 2_Run_EWAS (or 8_Mixtures/4_Run_Gcomp)
+out_dir   <- results_dir(cohort, "3_Clean_Results", create = TRUE)
 list_file <- file.path(out_dir, "files_to_clean.txt")
-dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
 # Parameters to exclude CpG probes
 ethnic  <- "GMAF1p"
@@ -72,7 +74,8 @@ for (i in seq_along(files)) {
   
   in_file  <- files[i]
   # Same relative path in 3_Clean_Results: <run>/<analysis>/<exposure>.rds
-  out_file <- sub(paste0("^", in_dir), out_dir, in_file)
+  stopifnot(startsWith(in_file, in_dir))   # file of this cohort's 2_Run_EWAS
+  out_file <- file.path(out_dir, substring(in_file, nchar(in_dir) + 2))
   out_path <- dirname(out_file)
   dir.create(out_path, recursive = TRUE, showWarnings = FALSE)
   exp_filename <- tools::file_path_sans_ext(basename(in_file))
@@ -97,7 +100,9 @@ for (i in seq_along(files)) {
   
   # Keep model statistics only, numeric, CpGs as rownames
   cpg_ids      <- ewas_results$probeID
-  ewas_results <- ewas_results[, c("Effect", "SE", "tvalue", "pvalue")]
+  # Mixtures also keep the per-compound coefficients (beta_<compound>)
+  ewas_results <- ewas_results[, c("Effect", "SE", "tvalue", "pvalue",
+                                   grep("^beta_", colnames(ewas_results), value = TRUE))]
   ewas_results <- as.data.frame(sapply(ewas_results, as.numeric))
   rownames(ewas_results) <- cpg_ids
   ewas_results$CpG <- cpg_ids
@@ -139,9 +144,8 @@ print(clean_summary)
 # Check: same number of CpGs after exclusion within each run
 tapply(clean_summary$n_after, clean_summary$run, function(x) length(unique(x)))   # all 1
 
-write.csv(clean_summary,
-          file.path(out_dir, paste0("clean_summary_", format(Sys.time(), "%Y%m%d_%H%M"), ".csv")),
-          row.names = FALSE)
+save_table(clean_summary,
+           file.path(out_dir, paste0("clean_summary_", format(Sys.time(), "%Y%m%d_%H%M"))), png = FALSE)
 
 #==============================================================================#----
 # END OF SCRIPT                                                                #----
