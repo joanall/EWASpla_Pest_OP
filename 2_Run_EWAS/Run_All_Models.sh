@@ -1,7 +1,7 @@
 #!/bin/bash
 #==============================================================================#
 # Run all EWAS sequentially for one cohort: every time point, all analyses
-# (main + s1-s6), with one run date for the whole batch.
+# (main + s1-s7), with one run date for the whole batch.
 # Usage (from the project root, same command on both PCs):
 #   nohup bash script/2_Run_EWAS/Run_All_Models.sh sepages 2tp > results/sepages/2_Run_EWAS/Run_All_Models.log 2>&1 &
 #   nohup bash script/2_Run_EWAS/Run_All_Models.sh bisc tp     > results/bisc/2_Run_EWAS/Run_All_Models.log 2>&1 &
