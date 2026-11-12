@@ -11,9 +11,8 @@ This repository holds the analysis code for an epigenome-wide association study 
 3. [Pipeline overview (Figure 1)](#3-pipeline-overview)
 4. [How to run each step](#4-how-to-run-each-step)
 5. [Results folders and files (Figure 2)](#5-results-folders-and-files)
-6. [Moving results between the two PCs](#6-moving-results-between-the-two-pcs)
-7. [Conventions](#7-conventions)
-8. [Requirements](#8-requirements)
+6. [Conventions](#6-conventions)
+7. [Requirements](#7-requirements)
 
 ---
 
@@ -31,7 +30,7 @@ This repository holds the analysis code for an epigenome-wide association study 
 | **Meta-analysis** | Fixed-effects inverse-variance meta-analysis of BiSC + SEPAGES with GWAMA |
 | **Mixture models** | Quantile g-computation (`qgcomp.noboot`) per CpG of 3-PBA, TCPy, ΣDMP and ΣDEP, with cohort-specific or shared BiSC + SEPAGES quantile cut-offs |
 
-The raw data of each cohort stay on that cohort's computer. The **BiSC PC** holds the BiSC data and runs the meta-analysis. The **SEPAGES PC** holds the SEPAGES data. Only results move between the two.
+The raw data of each cohort stay on that cohort's computer: the **BiSC PC** holds the BiSC data and runs the meta-analysis, the **SEPAGES PC** holds the SEPAGES data.
 
 ---
 
@@ -53,7 +52,6 @@ All input and output paths are defined once, in `00_paths.R`, so the same code r
 | `00_paths.R` | Locations of `db/` and `results/` for each cohort |
 | `00_functions.R` | Shared functions (CpG filters, robust regression, QQ plots...); also loads `00_template_plot.R` |
 | `00_template_plot.R` | Plot theme, colour palettes, `save_plot()`, `save_plots_pdf()`, `save_table()` |
-| `00_migrate_results.sh` | One-off: moves results saved in the old folder layout to the current one |
 | `BiSC/0_Get_Data/`, `Sepages/0_Get_Data/` | Cohort-specific data preparation (run on that cohort's PC) |
 | `1_Get_Descriptives/` ... `8_Mixtures/` | Analysis steps, numbered in the order they are run |
 
@@ -74,53 +72,29 @@ The same scripts in steps 3–6 (cleaning, QC, annotation, exploration of result
 
 ## 3. Pipeline overview
 
-**Figure 1.** Analysis steps. The colour shows the PC each step runs on. The steps inside the dashed box (3–6) are the same scripts, run with a different `cohort` argument for each analysis.
+**Figure 1.** Analysis steps. Steps 3–6 (yellow) are the same scripts for every analysis; the `cohort` argument on each arrow selects which results they work on. Grey steps run on both PCs (each on its own cohort); the meta-analysis (blue) runs on the BiSC PC.
 
 ```mermaid
-flowchart TB
+flowchart LR
     classDef bisc fill:#dbe8f6,stroke:#4477AA,color:#000
-    classDef sep fill:#fbe0e3,stroke:#EE6677,color:#000
     classDef both fill:#eeeeee,stroke:#555555,color:#000
     classDef shared fill:#fff6d5,stroke:#CCBB44,color:#000
 
-    subgraph DATA["0 · Data preparation (each cohort on its own PC)"]
-        B0["BiSC/0_Get_Data<br/>exposures + covariates + DNAm covariates<br/>→ analysis subsets"]:::bisc
-        S0["Sepages/0_Get_Data<br/>exposures + covariates + DNAm covariates<br/>→ analysis subsets"]:::sep
-    end
+    D0["<b>0 · Data preparation</b><br/>each cohort on its own PC"]:::both
+    D1["<b>1 · Descriptives</b><br/>Table 1, exposures"]:::both
+    E2["<b>2 · EWAS</b><br/>rlm per CpG<br/>main + s1–s6"]:::both
+    M4["<b>8 · Mixtures</b><br/>qgcomp per CpG<br/>4 compounds"]:::both
+    S36["<b>Steps 3–6</b> · same scripts for every analysis<br/><br/>3 · Clean results<br/>4 · QC (lambda, QQ plots)<br/>5 · Annotation<br/>6 · Explore DMPs (volcano, Manhattan,<br/>suggestive CpGs, forest plots)"]:::shared
+    G7["<b>7 · Meta-analysis</b> (BiSC PC)<br/><br/>1–3 · GWAMA fixed effects<br/>7–8 · Forest plots<br/>9 · CI checks"]:::bisc
 
-    D1["1_Get_Descriptives<br/>Table 1, exposure distributions,<br/>correlations"]:::both
-    E2["2_Run_EWAS<br/>robust regression per CpG<br/>main + s1–s6 × 6 exposures × t2/t3/avg"]:::both
-    M4["8_Mixtures 1–4<br/>quantile cut-offs → qgcomp per CpG<br/>(4 compounds)"]:::both
-
-    subgraph SHARED["Steps 3–6: same scripts for every analysis (cohort = bisc · sepages · meta · bisc_mix · sepages_mix · meta_mix)"]
-        C3["3_Clean_Results<br/>remove unreliable probes,<br/>Bonferroni / FDR"]:::shared
-        Q4["4_QC<br/>lambda + QQ plots"]:::shared
-        A5["5_Annotation<br/>genes, CpG islands,<br/>placental chromatin states"]:::shared
-        R6["6_Analyze_DMPs<br/>volcano, Manhattan, suggestive CpGs,<br/>consistency tables, forest plots"]:::shared
-        C3 --> Q4 --> A5 --> R6
-    end
-
-    subgraph META["7_Meta (BiSC PC, after copying the SEPAGES results)"]
-        G1["1_Get_Input_GWAMA"]:::bisc
-        G2["2_Run_GWAMA<br/>fixed effects"]:::bisc
-        G3["3_Read_GWAMA"]:::bisc
-        F7["7–8 Forest plots<br/>meta vs cohorts, sensitivity"]:::bisc
-        K9["9_Check_CI<br/>(+ 9_1 on the SEPAGES PC)"]:::bisc
-        G1 --> G2 --> G3
-    end
-
-    DATA --> D1
-    DATA --> E2
-    DATA --> M4
-    E2 -- "bisc / sepages" --> C3
-    M4 -- "bisc_mix / sepages_mix" --> C3
-    C3 -- "cleaned results of both cohorts" --> G1
-    G3 -- "meta / meta_mix" --> Q4
-    G3 --> F7
-    G3 --> K9
+    D0 --> D1
+    D0 --> E2
+    D0 --> M4
+    E2 -- "bisc / sepages" --> S36
+    M4 -- "bisc_mix / sepages_mix" --> S36
+    S36 -- "cleaned results<br/>of both cohorts" --> G7
+    G7 -- "meta / meta_mix" --> S36
 ```
-
-Colours: blue = BiSC PC · red = SEPAGES PC · grey = both PCs (each runs its own cohort) · yellow = reused steps.
 
 ---
 
@@ -205,7 +179,7 @@ Rscript script/6_Analyze_DMPs/3a_Get_Suggestive_Summary.R bisc "bisc_tp_(t2|t3)_
 
 ### Step 7 · Meta-analysis (`7_Meta`, BiSC PC)
 
-First copy `results/sepages/` from the SEPAGES PC. Fill in the `design` table at the top of `1_Get_Input_GWAMA.R` (run folders and N per cohort). For the meta-analysis of the mixture models, fill in `design_mix` and add the argument `meta_mix` to scripts 1–3.
+The SEPAGES results (`results/sepages/`) must be available on the BiSC PC. Fill in the `design` table at the top of `1_Get_Input_GWAMA.R` (run folders and N per cohort). For the meta-analysis of the mixture models, fill in `design_mix` and add the argument `meta_mix` to scripts 1–3.
 
 ```bash
 Rscript script/7_Meta/1_Get_Input_GWAMA.R          # GWAMA input files     (add meta_mix for the mixtures)
@@ -315,26 +289,7 @@ results/bisc/
 
 ---
 
-## 6. Moving results between the two PCs
-
-| From → to | Copy | Needed for |
-|---|---|---|
-| SEPAGES PC → BiSC PC | `results/sepages/` (as it is, into `results/sepages/`) | Meta-analysis, shared cut-offs, comparisons |
-| BiSC PC → SEPAGES PC | `results/8_Mixtures/3_Shared_Cutoffs/` | SEPAGES mixture models with shared cut-offs |
-| BiSC PC → SEPAGES PC | `results/7_Meta/9_Check_CI/tophits_ci_detail.txt` | `9_1_Check_CI_Sepages.R` |
-| either | `db/annotation_data/cpg_annotation_all.rds` | Annotation (or run `1_Get_Annotation.R` on each PC) |
-
-Results saved in the earlier folder layout can be moved once with `00_migrate_results.sh`. It shows what it would do first and never overwrites anything:
-
-```bash
-bash script/00_migrate_results.sh                    # dry run
-bash script/00_migrate_results.sh --apply            # move
-bash script/00_migrate_results.sh --default-cohort sepages --apply   # PC with only SEPAGES results
-```
-
----
-
-## 7. Conventions
+## 6. Conventions
 
 - **Paths:** only in `00_paths.R`. Scripts build paths with `results_dir(cohort, "<step>")`, `clean_dir(cohort)`, `db_subset(...)`.
 - **Tables:** saved with `save_table()` as `.xlsx`, plus a `.png` for small tables. Plain `.csv`/`.txt` is used only for files that other scripts read back (indexes, GWAMA inputs, percentile grid).
@@ -343,7 +298,7 @@ bash script/00_migrate_results.sh --default-cohort sepages --apply   # PC with o
 
 ---
 
-## 8. Requirements
+## 7. Requirements
 
 - R (≥ 4.2) with: `MASS`, `sfsmisc`, `foreach`, `doParallel`, `qgcomp`, `ggplot2`, `patchwork`, `gridExtra`, `khroma`, `colorspace`, `tableone`, `writexl`, `dagitty`, `dplyr` (SEPAGES data preparation only); Bioconductor: `GenomicRanges`, `IlluminaHumanMethylationEPICanno.ilm10b2.hg19`
 - GWAMA for the meta-analysis, installed with conda (`conda install -c bioconda -c conda-forge gwama`) (see the header of `7_Meta/2_Run_GWAMA.R`)
