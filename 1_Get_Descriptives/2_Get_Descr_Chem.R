@@ -3,7 +3,7 @@
 # BiSC and SEPAGES cohorts. 
 # Author: Joana Llauradó
 # Contact: joana.llaurado@isglobal.org                              
-# Date: Stay in Grenoble October - November 2026
+# Date:  October - November 2026
 #==============================================================================#
 # [DESCRIPTION]: Descriptive statistics of the chemical compounds, per cohort,
 # in the analytical sample:
@@ -13,11 +13,11 @@
 # 3) Spearman correlations between compounds at t2 and t3 (raw)
 # 4) ICC between t2 and t3 for each continuous exposure (log2 imputed)
 # Argument: cohort (sepages / bisc)
-#   Rscript script/1_Descriptives/3_Get_Descr_Chem.R sepages
+#   Rscript script/1_Get_Descriptives/2_Get_Descr_Chem.R sepages
 #
 # [INPUT]:  SEPAGES: db/subsets/df_main.rds (both time points)
 #           BiSC:    db/subsets/df_main_t2.rds, df_main_t3.rds
-# [OUTPUT]: results/1_Descriptives/descr_chem/<cohort>/
+# [OUTPUT]: results/<cohort>/1_Get_Descriptives/descr_chem/
 #           table_pest_distribution.csv/.png, boxplot_exposures.png,
 #           cor_compounds_t2.png, cor_compounds_t3.png, icc_t2_t3.csv/.png
 #==============================================================================#
@@ -25,14 +25,14 @@
 #==============================================================================#----
 # SET UP                                                                       #----
 #==============================================================================#----
+source("script/00_paths.R")
 source("script/00_template_plot.R")
 
 args   <- commandArgs(trailingOnly = TRUE)
 cohort <- if (length(args) >= 1) args[1] else "sepages"
-stopifnot(cohort %in% c("sepages", "bisc"))
+check_cohort(cohort, c("sepages", "bisc"))
 
-outdir <- file.path("results/1_Descriptives/descr_chem", cohort, "")
-dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
+outdir <- paste0(results_dir(cohort, "1_Get_Descriptives", "descr_chem", create = TRUE), "/")
 cohort_label <- if (cohort == "sepages") "SEPAGES" else "BiSC"
 
 # Compounds: same order in all vectors
@@ -48,15 +48,15 @@ chem_raw_t3 <- sub("_t2$", "_t3", chem_raw_t2)
 # CHECK the LOD/LOQ values (ug/L) against each lab's documentation
 
 if (cohort == "sepages") {
-  df_t2 <- readRDS("db/subsets/df_main.rds")    # same women at t2 and t3
+  df_t2 <- readRDS(db_subset("sepages", "main", "2tp"))   # same women at t2 and t3
   df_t3 <- df_t2
   lod <- c(0.15, 0.20, 0.10, 1.20, 0.20, 0.21, 0.38, 0.33, NA)
   loq <- c(0.50, 0.60, 0.30, 4.00, 0.66, 0.63, 1.30, 1.00, NA)
 }
 
 if (cohort == "bisc") {
-  df_t2 <- readRDS("db/subsets/df_main_t2.rds")
-  df_t3 <- readRDS("db/subsets/df_main_t3.rds")
+  df_t2 <- readRDS(db_subset("bisc", "main", "tp", "t2"))
+  df_t3 <- readRDS(db_subset("bisc", "main", "tp", "t3"))
   lod <- c(0.15, 0.20, 0.10, 1.20, 0.20, 0.21, 0.38, 0.33, NA)   
   loq <- c(0.50, 0.60, 0.30, 4.00, 0.66, 0.63, 1.30, 1.00, NA)
 }
