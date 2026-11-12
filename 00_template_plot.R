@@ -133,6 +133,10 @@ pal_exposure <- c("2,4-D" = "#4477AA", "3-PBA" = "#66CCEE",
                   "TCPy"  = "#228833", "ΣDMP"  = "#CCBB44",
                   "ΣDEP"  = "#EE6677", "ΣDAP"  = "#AA3377", "Mixture" = "grey20")
 
+# Placental cell types (estimated from DNAm)
+pal_cell_type <- c(Trophoblasts = "#4477AA", Stromal = "#66CCEE", Hofbauer = "#228833",
+                   Endothelial = "#CCBB44", nRBC = "#AA3377", Syncytiotrophoblast = "#BBBBBB")
+
 # Lighter versions (e.g. fill behind points / confidence bands)
 pal_cohort_light <- lighten(pal_cohort, amount = 0.5)
 
