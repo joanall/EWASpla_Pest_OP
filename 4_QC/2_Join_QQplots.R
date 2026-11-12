@@ -96,7 +96,7 @@ for (e in exp_order) {
   for (tp in names(tp_runs)) {
     figures[[paste0(cohort, "_", sample_set, "_", e, "_sens_", tp)]] <-
       list(runs = tp_runs[[tp]],
-           analyses = c("main", paste0("s", 1:6)),
+           analyses = c("main", paste0("s", 1:7)),
            exposures = e, ncol = 3,
            title = paste0(cohort_label, " - ", e, ", main and sensitivity analyses, ",
                           tp_labels[[tp]]),
