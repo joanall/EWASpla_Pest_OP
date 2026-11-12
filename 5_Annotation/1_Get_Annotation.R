@@ -11,20 +11,22 @@
 # - Partially methylated domains in placenta (PMD_placenta)
 # - Germline differentially methylated regions / imprinted regions (IR_Placenta)
 
-# [INPUT]:
-#           db/annotation_data/FP_15_E091.RData, PMD_placenta.RData, IR_Placenta.RData
-# [OUTPUT]: results/5_Annotation/cpg_annotation_all.rds
+# Same annotation for every cohort and the meta-analysis: run once, saved in
+# db/annotation_data/ (copy it to the other PC).
+#
+# [INPUT]:  db/annotation_data/FP_15_E091.RData, PMD_placenta.RData, IR_Placenta.RData
+# [OUTPUT]: db/annotation_data/cpg_annotation_all.rds
 #==============================================================================#
 
 
 #==============================================================================#----
 # SET UP                                                                       #----
 #==============================================================================#----
+source("script/00_paths.R")
 library(GenomicRanges)
 library(IlluminaHumanMethylationEPICanno.ilm10b2.hg19)
 
-output_folder <- "results/5_Annotation/"
-dir.create(output_folder, recursive = TRUE, showWarnings = FALSE)
+dir.create(dirname(annotation_file), recursive = TRUE, showWarnings = FALSE)
 #==============================================================================#----
 # ANNOTATION                                                                   #----
 #==============================================================================#----
@@ -107,7 +109,7 @@ sum(duplicated(annotation$CpG))                                                 
 round(100 * colMeans(!is.na(annotation[, c("States15_FP", "PMD", "gDMR")])), 1)
 head(annotation)
 
-saveRDS(annotation, paste0(output_folder, "cpg_annotation_all.rds"))
+saveRDS(annotation, annotation_file)
 
 
 #==============================================================================#----

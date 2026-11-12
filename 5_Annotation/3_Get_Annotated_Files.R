@@ -9,13 +9,16 @@
 # line) and an index table describing each file, for the downstream scripts
 # (results tables, plots, meta-analysis).
 #
-# Argument (optional): pattern for the run folders to include (regular
-# expression; default: all), e.g. "sepages_2tp_t[23]_old"
-#   Rscript script/5_Annotation/3_Get_Annotated_Files.R "sepages_2tp_t[23]_old"
+# Arguments:
+#   1) cohort: bisc / sepages / meta / bisc_mix / sepages_mix / meta_mix
+#   2) pattern for the run folders to include (regular expression; default: all),
+#      e.g. "sepages_2tp_t[23]_old"
+#   Rscript script/5_Annotation/3_Get_Annotated_Files.R sepages "sepages_2tp_t[23]_old"
 #
-# [INPUT]:  results/5_Annotation/<run>/<analysis>/<exposure>_<tp>_annotated.rds
-# [OUTPUT]: results/5_Annotation/files_annotated.txt
-#           results/5_Annotation/files_annotated_index.csv
+# [INPUT]:  results/<cohort>/5_Annotation/<run>/<analysis>/<exposure>_<tp>_annotated.rds
+# [OUTPUT]: results/<cohort>/5_Annotation/files_annotated.txt
+#           results/<cohort>/5_Annotation/files_annotated_index.csv
+#           (meta: results/7_Meta/5_Annotation/...)
 #           (path, run, cohort, sample, time_point, run_date, analysis, exposure)
 
 #==============================================================================#
@@ -25,11 +28,16 @@
 # SET UP                                                                       #----
 #==============================================================================#----
 
-annot_dir  <- "results/5_Annotation"
+source("script/00_paths.R")
+
+args <- commandArgs(trailingOnly = TRUE)
+cohort      <- if (length(args) >= 1) args[1] else "bisc"
+run_pattern <- if (length(args) >= 2 && args[2] != "") args[2] else "."
+check_cohort(cohort)
+
+annot_dir  <- results_dir(cohort, "5_Annotation")
 list_file  <- file.path(annot_dir, "files_annotated.txt")
 index_file <- file.path(annot_dir, "files_annotated_index.csv")
-args <- commandArgs(trailingOnly = TRUE)
-run_pattern <- if (length(args) >= 1 && args[1] != "") args[1] else "."
 
 #==============================================================================#----
 # LIST CLEANED FILES                                                           #----
@@ -44,7 +52,7 @@ stopifnot(length(run_folders) > 0)
 # Cleaned result files inside <run>/<analysis>/ (.rds)
 all_files <- character(0)
 for (rf in run_folders) {
-  for (a in c("main", paste0("s", 1:5))) {
+  for (a in c("main", paste0("s", 1:6))) {
     f <- list.files(file.path(rf, a), pattern = "_annotated\\.rds$", full.names = TRUE)
     all_files <- c(all_files, f)
   }
@@ -74,8 +82,8 @@ files_index <- data.frame(
 stopifnot(all(endsWith(files_index$path,
                        paste0("_", files_index$time_point, "_annotated.rds"))))
 # Check: exposure codes without the time point suffix (should be character(0))
-setdiff(unique(files_index$exposure), c("24d", "3pba", "tcpy", "dmp", "dep", "dap"))
-stopifnot(all(files_index$exposure %in% c("24d", "3pba", "tcpy", "dmp", "dep", "dap")))
+setdiff(unique(files_index$exposure), c("24d", "3pba", "tcpy", "dmp", "dep", "dap", "mix"))
+stopifnot(all(files_index$exposure %in% c("24d", "3pba", "tcpy", "dmp", "dep", "dap", "mix")))
 # Check: files per run and analysis (6 expected each)
 table(files_index$run, files_index$analysis)
 
@@ -84,6 +92,7 @@ table(files_index$run, files_index$analysis)
 #==============================================================================#----
 
 writeLines(files_index$path, list_file)
+# Plain csv on purpose: read back by later scripts (not a results table)
 write.csv(files_index, index_file, row.names = FALSE)
 cat("List written:", list_file, "|", nrow(files_index), "files\n")
 cat("Index written:", index_file, "\n")
